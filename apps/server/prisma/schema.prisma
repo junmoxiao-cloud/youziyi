@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                  String        @id @default(uuid())
+  name                String
+  password            String        @default("")
+  role                String        // "elder" or "child"
+  cityCode            String?
+  lastInteractionTime DateTime      @default(now())
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  checkIns            CheckIn[]
+  voiceRecords        VoiceRecord[]
+  healthConfig        HealthConfig?
+  dailyConfirms       DailyConfirm[]
+}
+
+model CheckIn {
+  id        String   @id @default(uuid())
+  mood      String
+  steps     Int      @default(0)
+  heartRate Int?
+  timestamp DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model VoiceRecord {
+  id        String   @id @default(uuid())
+  url       String
+  duration  Int
+  storyId   String
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model HealthConfig {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  metrics   String   // JSON string of selectable metrics, e.g. ["mood", "steps", "bloodPressure"]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DailyConfirm {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  metricsData String   // JSON string of confirmed metrics data
+  createdAt   DateTime @default(now())
+}
+

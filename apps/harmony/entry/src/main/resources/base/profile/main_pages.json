@@ -1,0 +1,9 @@
+{
+  "src": [
+    "pages/Splash",
+    "pages/Login",
+    "pages/RoleSelect",
+    "pages/CareProfile",
+    "pages/Main"
+  ]
+}

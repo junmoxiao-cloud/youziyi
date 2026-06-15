@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper-50: #FCFAF8;
+  --color-paper-100: #F9F6F0;
+  --color-paper-200: #F0EBE1;
+  --color-paper-300: #E6DFD3;
+  --color-paper-800: #5C5549;
+
+  --color-jade-100: #E0F0E9;
+  --color-jade-200: #C4E5D3;
+  --color-jade-300: #96C7A7;
+  --color-jade-400: #6BA87E;
+  --color-jade-600: #3E7350;
+
+  --color-ink-900: #1E1F21;
+  --color-ink-800: #2B2D2F;
+  --color-ink-600: #4A4D50;
+  --color-ink-400: #8E9195;
+  --color-ink-200: #D0D2D5;
+
+  --color-cinnabar-500: #D25642;
+  --color-cinnabar-600: #B74633;
+
+  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+}
+
+@layer base {
+  body {
+    @apply bg-paper-100 text-ink-800 font-sans;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Subtle paper texture using SVG */
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-ink-900;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-paper-100 rounded-full;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-paper-300 rounded-full hover:bg-jade-200 transition-colors;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}

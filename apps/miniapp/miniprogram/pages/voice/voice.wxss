@@ -1,0 +1,62 @@
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f5f5;
+}
+
+.container {
+  padding: 40rpx;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  margin-bottom: 80rpx;
+  text-align: center;
+}
+
+.title {
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #333333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.subtitle {
+  font-size: 36rpx;
+  color: #666666;
+}
+
+.record-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.record-btn {
+  width: 400rpx;
+  height: 400rpx;
+  border-radius: 50%;
+  background-color: #0277bd; /* 深蓝色高对比 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 10rpx 30rpx rgba(2, 119, 189, 0.4);
+  transition: all 0.2s ease-in-out;
+}
+
+.record-btn.recording {
+  background-color: #d32f2f; /* 录音中变成红色 */
+  transform: scale(1.1);
+  box-shadow: 0 10rpx 40rpx rgba(211, 47, 47, 0.5);
+}
+
+.btn-text {
+  color: #ffffff;
+  font-size: 56rpx;
+  font-weight: bold;
+}

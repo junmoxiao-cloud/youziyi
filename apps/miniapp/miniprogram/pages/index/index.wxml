@@ -1,0 +1,34 @@
+<!--index.wxml-->
+<scroll-view class="scrollarea" scroll-y type="list">
+  <view class="container">
+    <view class="header">
+      <text class="title">每日打卡</text>
+      <text class="subtitle">记录您的心情和健康</text>
+    </view>
+
+    <view class="mood-section">
+      <text class="section-title">今天心情怎么样？</text>
+      <view class="mood-buttons">
+        <button class="mood-btn happy" bindtap="checkIn" data-mood="happy">开心</button>
+        <button class="mood-btn calm" bindtap="checkIn" data-mood="calm">平静</button>
+        <button class="mood-btn sad" bindtap="checkIn" data-mood="sad">低落</button>
+      </view>
+    </view>
+
+    <view class="step-section">
+      <text class="section-title">今日步数</text>
+      <view class="step-input-wrapper">
+        <input class="step-input" type="number" placeholder="请输入步数" value="{{steps}}" bindinput="onStepInput" />
+      </view>
+    </view>
+
+    <view class="submit-section">
+      <button class="submit-btn" bindtap="submitCheckIn">提交打卡</button>
+    </view>
+
+    <!-- 导航到语音页面 -->
+    <view class="nav-section">
+      <button class="nav-btn" bindtap="navigateToVoice">家庭语音接龙</button>
+    </view>
+  </view>
+</scroll-view>

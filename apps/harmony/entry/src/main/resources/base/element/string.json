@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "YouZiYi（游子衣）鸿蒙端前端骨架"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "YouZiYi（游子衣）鸿蒙端入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "YouZiYi"
+    }
+  ]
+}
