@@ -4,27 +4,55 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  engineType      = "library"
 }
 
 datasource db {
   provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
-  id                  String        @id @default(uuid())
-  name                String
-  password            String        @default("")
-  role                String        // "elder" or "child"
+  id                  String         @id @default(uuid())
+  name                String         @unique
+  password            String         @default("")
+  role                String         @default("elder")
   cityCode            String?
-  lastInteractionTime DateTime      @default(now())
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  city                String?
+  trackedMetrics      String?
+  lastInteractionTime DateTime       @default(now())
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   checkIns            CheckIn[]
   voiceRecords        VoiceRecord[]
   healthConfig        HealthConfig?
   dailyConfirms       DailyConfirm[]
+  familyMembers       FamilyMember[]
+  healthRecords       HealthRecord[]
+}
+
+model Family {
+  id             String         @id @default(uuid())
+  name           String
+  connectionCode String         @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  members        FamilyMember[]
+}
+
+model FamilyMember {
+  id        String   @id @default(uuid())
+  familyId  String
+  userId    String
+  role      String   // "elder" or "youth"
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([familyId, userId])
 }
 
 model CheckIn {
@@ -64,3 +92,11 @@ model DailyConfirm {
   createdAt   DateTime @default(now())
 }
 
+model HealthRecord {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  metricsData String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

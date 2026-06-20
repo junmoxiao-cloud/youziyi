@@ -1,46 +1,28 @@
-import promptAction from '@ohos.promptAction';
-import {
-  APP_CONFIG,
-  getVerificationRequestMode,
-  isDevelopmentEnvironment,
-  isUniversalCodeEnabled
-} from '../common/AppConfig';
-import { appRepository } from '../services/AppRepository';
+import promptAction from '@ohos.promptAction'
+import { appSession, resolveAuthenticatedRoute } from '../common/AppSession'
+import { UserRole } from '../common/ApiModels'
+import { appRepository } from '../services/AppRepository'
 
 @Entry
 @Component
 struct Login {
-  private readonly universalCode: string = APP_CONFIG.verification.universalCode
-  @State phone: string = ''
-  @State code: string = ''
-  @State countdown: number = 0
-  @State helpText: string = '默认绑定正式后端 https://api.youziyi.com；仅开发态切回 localhost，并按配置开放演示兜底。'
+  @State isRegisterMode: boolean = false
+  @State name: string = ''
+  @State password: string = ''
+  @State selectedRole: UserRole = 'elder'
+  @State isSubmitting: boolean = false
+  @State message: string = '接入现有登录/注册接口后，首跳将按资料完整度依次进入 Onboarding、家庭连接或主页面。'
 
-  private startCountdown(): void {
-    if (this.countdown > 0) {
-      return
-    }
-
-    this.countdown = 60
-    const timerId = setInterval(() => {
-      if (this.countdown > 0) {
-        this.countdown -= 1
-        return
-      }
-      clearInterval(timerId)
-    }, 1000)
-  }
-
-  private isUniversalCodeEnabled(): boolean {
-    return isUniversalCodeEnabled()
-  }
-
-  private getVerificationModeLabel(): string {
-    return getVerificationRequestMode() === 'remote' ? '远程优先' : 'Mock'
-  }
-
-  private getEnvironmentLabel(): string {
-    return isDevelopmentEnvironment() ? '开发态' : '正式环境'
+  private finishAuth(userId: string, name: string, role: UserRole): void {
+    appSession.setAuth(userId, name, role)
+    appRepository.getUserProfile(userId).then((response) => {
+      appSession.setProfile(response.data)
+      this.getUIContext().getRouter().replaceUrl({ url: resolveAuthenticatedRoute(response.data) })
+    }).catch((error: Error) => {
+      promptAction.showToast({ message: error.message })
+    }).finally(() => {
+      this.isSubmitting = false
+    })
   }
 
   build() {
@@ -53,101 +35,90 @@ struct Login {
           .width('100%')
           .margin({ top: 30 })
 
-        Text('保留登录壳与验证码边界，不在鸿蒙端内落正式鉴权逻辑。')
+        Text(this.isRegisterMode ? '先建立身份与角色，再进入首次资料采集。' : '登录后会按资料完成度继续进入 Onboarding 或家庭连接。')
           .fontSize(18)
           .lineHeight(28)
           .fontColor('#5B6477')
           .width('100%')
 
         Column({ space: 12 }) {
-          Text('手机号')
+          Text('您的称呼')
             .fontSize(20)
             .fontWeight(FontWeight.Medium)
             .width('100%')
 
-          TextInput({ placeholder: '请输入手机号', text: this.phone })
-            .type(InputType.PhoneNumber)
-            .maxLength(11)
+          TextInput({ placeholder: '请输入您的称呼', text: this.name })
             .height(56)
             .fontSize(20)
             .backgroundColor('#FFFFFF')
             .onChange((value: string) => {
-              this.phone = value
+              this.name = value
             })
         }
         .width('100%')
 
         Column({ space: 12 }) {
-          Text('验证码')
+          Text('通行密码')
             .fontSize(20)
             .fontWeight(FontWeight.Medium)
             .width('100%')
 
-          Row({ space: 12 }) {
-            TextInput({ placeholder: '请输入验证码', text: this.code })
-              .type(InputType.Number)
-              .maxLength(6)
-              .layoutWeight(1)
-              .height(56)
-              .fontSize(20)
-              .backgroundColor('#FFFFFF')
-              .onChange((value: string) => {
-                this.code = value
-              })
-
-            Button(this.countdown > 0 ? `${this.countdown}s` : '获取验证码')
-              .width(132)
-              .height(56)
-              .fontSize(18)
-              .backgroundColor('#3F7BFA')
-              .enabled(this.countdown === 0)
-              .onClick(() => {
-                this.startCountdown()
-                appRepository.requestVerificationCode(this.phone).then((response) => {
-                  this.helpText = response.data.codeHint
-                  promptAction.showToast({ message: response.message })
-                }).catch((error: Error) => {
-                  this.helpText = `验证码请求失败，请检查 ${APP_CONFIG.apiBaseUrl} 是否可访问。`
-                  promptAction.showToast({ message: error.message })
-                })
-              })
-          }
-          .width('100%')
+          TextInput({ placeholder: '请输入密码', text: this.password })
+            .type(InputType.Password)
+            .height(56)
+            .fontSize(20)
+            .backgroundColor('#FFFFFF')
+            .onChange((value: string) => {
+              this.password = value
+            })
         }
         .width('100%')
 
+        if (this.isRegisterMode) {
+          Column({ space: 12 }) {
+            Text('选择身份')
+              .fontSize(20)
+              .fontWeight(FontWeight.Medium)
+              .width('100%')
+
+            Row({ space: 12 }) {
+              Button('我是长辈')
+                .layoutWeight(1)
+                .height(56)
+                .fontSize(18)
+                .fontColor(this.selectedRole === 'elder' ? '#FFFFFF' : '#20315F')
+                .backgroundColor(this.selectedRole === 'elder' ? '#20315F' : '#FFFFFF')
+                .border({ width: 1, color: '#C9D9FF' })
+                .onClick(() => {
+                  this.selectedRole = 'elder'
+                })
+
+              Button('我是子女')
+                .layoutWeight(1)
+                .height(56)
+                .fontSize(18)
+                .fontColor(this.selectedRole === 'child' ? '#FFFFFF' : '#20315F')
+                .backgroundColor(this.selectedRole === 'child' ? '#20315F' : '#FFFFFF')
+                .border({ width: 1, color: '#C9D9FF' })
+                .onClick(() => {
+                  this.selectedRole = 'child'
+                })
+            }
+            .width('100%')
+          }
+          .width('100%')
+        }
+
         Column({ space: 8 }) {
-          Text('登录策略')
+          Text(this.isRegisterMode ? '注册后下一步' : '登录后下一步')
             .fontSize(20)
             .fontWeight(FontWeight.Medium)
             .width('100%')
 
-          Text(`业务接口模式：${APP_CONFIG.apiMode === 'remote' ? '远程服务端' : 'Mock'}`)
-            .fontSize(18)
-            .fontColor('#20315F')
-            .width('100%')
-
-          Text(`运行环境：${this.getEnvironmentLabel()}，当前绑定 ${APP_CONFIG.apiBaseUrl}`)
-            .fontSize(18)
-            .fontColor('#20315F')
-            .width('100%')
-
-          Text(`验证码模式：${this.getVerificationModeLabel()}`)
-            .fontSize(18)
-            .fontColor('#20315F')
-            .width('100%')
-
-          Text(this.helpText)
+          Text(this.message)
             .fontSize(18)
             .lineHeight(28)
             .fontColor('#5B6477')
-            .width('100%')
-
-          Text(this.isUniversalCodeEnabled()
-            ? `当前万能验证码：${this.universalCode}`
-            : '当前环境已禁用万能验证码')
-            .fontSize(18)
-            .fontColor('#3F7BFA')
             .width('100%')
         }
         .width('100%')
@@ -155,28 +126,53 @@ struct Login {
         .backgroundColor('#EEF4FF')
         .borderRadius(20)
 
-        Button('进入角色选择')
+        Button(this.isSubmitting ? '提交中...' : (this.isRegisterMode ? '注册并继续' : '登录并继续'))
           .width('100%')
           .height(56)
           .fontSize(20)
           .backgroundColor('#20315F')
+          .enabled(!this.isSubmitting)
           .onClick(() => {
-            if (!this.phone) {
-              promptAction.showToast({ message: '请先填写手机号' })
+            const normalizedName = this.name.trim()
+            const normalizedPassword = this.password.trim()
+            if (!normalizedName || !normalizedPassword) {
+              promptAction.showToast({ message: '请先填写完整信息' })
               return
             }
 
-            if (this.isUniversalCodeEnabled() && this.code === this.universalCode) {
-              this.getUIContext().getRouter().pushUrl({ url: 'pages/RoleSelect' })
+            this.isSubmitting = true
+            if (this.isRegisterMode) {
+              appRepository.register(normalizedName, normalizedPassword, this.selectedRole).then((response) => {
+                promptAction.showToast({ message: response.message })
+                this.finishAuth(response.data.userId, response.data.name, response.data.role)
+              }).catch((error: Error) => {
+                this.isSubmitting = false
+                promptAction.showToast({ message: error.message })
+              })
               return
             }
 
-            if (this.code.length < 4) {
-              promptAction.showToast({ message: this.isUniversalCodeEnabled() ? '请填写万能验证码或不少于 4 位的演示验证码' : '请填写不少于 4 位的演示验证码' })
-              return
-            }
+            appRepository.login(normalizedName, normalizedPassword).then((response) => {
+              promptAction.showToast({ message: response.message })
+              this.finishAuth(response.data.userId, response.data.name, response.data.role)
+            }).catch((error: Error) => {
+              this.isSubmitting = false
+              promptAction.showToast({ message: error.message })
+            })
+          })
 
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/RoleSelect' })
+        Button(this.isRegisterMode ? '已有账号，去登录' : '初次使用，去注册')
+          .width('100%')
+          .height(52)
+          .fontSize(18)
+          .fontColor('#20315F')
+          .backgroundColor('#FFFFFF')
+          .border({ width: 1, color: '#C9D9FF' })
+          .onClick(() => {
+            this.isRegisterMode = !this.isRegisterMode
+            this.message = this.isRegisterMode
+              ? '注册成功后会先进入 Onboarding，完成城市和每日关注指标配置。'
+              : '登录成功后会根据是否已完成 Onboarding 和家庭连接自动分流。'
           })
       }
       .width('100%')

@@ -1,142 +1,88 @@
-import React, { useRef, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, MeshTransmissionMaterial, Sparkles } from '@react-three/drei';
-import * as THREE from 'three';
-
 interface WeatherBottleProps {
   weatherType: string;
 }
 
-function SimpleCloud({ position, opacity }: { position: [number, number, number], opacity: number }) {
-  return (
-    <group position={position}>
-      <mesh position={[-0.5, 0, 0]}>
-        <sphereGeometry args={[0.5, 16, 16]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={opacity} />
-      </mesh>
-      <mesh position={[0.5, 0, 0]}>
-        <sphereGeometry args={[0.5, 16, 16]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={opacity} />
-      </mesh>
-      <mesh position={[0, 0.4, 0]}>
-        <sphereGeometry args={[0.6, 16, 16]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={opacity} />
-      </mesh>
-    </group>
-  );
-}
-
-function WeatherEffects({ weatherType }: { weatherType: string }) {
-  const groupRef = useRef<THREE.Group>(null);
-
-  // 严格执行 3D 内存回收
-  useEffect(() => {
-    const group = groupRef.current;
-    return () => {
-      if (group) {
-        group.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            if (child.geometry) {
-              child.geometry.dispose();
-            }
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach((m) => m.dispose());
-              } else {
-                child.material.dispose();
-              }
-            }
-          }
-        });
-      }
-    };
-  }, []);
-
-  switch (weatherType) {
-    case 'snowy':
-      return (
-        <group ref={groupRef}>
-          <Sparkles count={100} scale={2.5} size={2} speed={0.4} opacity={0.8} color="#F9F6F0" />
-        </group>
-      );
-    case 'rainy':
-      return (
-        <group ref={groupRef}>
-          <Sparkles count={150} scale={2.5} size={1} speed={1.5} opacity={0.6} color="#96C7A7" />
-          <SimpleCloud position={[0, 1.5, 0]} opacity={0.5} />
-        </group>
-      );
-    case 'cloudy':
-      return (
-        <group ref={groupRef}>
-          <SimpleCloud position={[0, 1, 0]} opacity={0.8} />
-          <SimpleCloud position={[0, -0.5, 0]} opacity={0.4} />
-        </group>
-      );
-    case 'sunny':
-    default:
-      return (
-        <group ref={groupRef}>
-          <pointLight position={[0, 2, 0]} intensity={2} color="#D25642" />
-          <mesh position={[0, 0, 0]}>
-            <sphereGeometry args={[0.5, 32, 32]} />
-            <meshBasicMaterial color="#D25642" />
-          </mesh>
-          <Sparkles count={50} scale={2} size={1.5} speed={0.2} opacity={0.5} color="#F0EBE1" />
-        </group>
-      );
-  }
-}
-
-function Bottle() {
-  const bottleRef = useRef<THREE.Mesh>(null);
-
-  // 严格执行 3D 内存回收
-  useEffect(() => {
-    const bottle = bottleRef.current;
-    return () => {
-      if (bottle) {
-        if (bottle.geometry) {
-          bottle.geometry.dispose();
-        }
-        if (bottle.material) {
-          if (Array.isArray(bottle.material)) {
-            bottle.material.forEach((m) => m.dispose());
-          } else {
-            bottle.material.dispose();
-          }
-        }
-      }
-    };
-  }, []);
-
-  return (
-    <mesh ref={bottleRef}>
-      <cylinderGeometry args={[1.5, 1.5, 4, 32]} />
-      <MeshTransmissionMaterial 
-        color="#E0F0E9"
-        thickness={0.5}
-        roughness={0.1}
-        transmission={1}
-        ior={1.5}
-        chromaticAberration={0.04}
-        backside
-      />
-    </mesh>
-  );
-}
-
 export default function WeatherBottle({ weatherType }: WeatherBottleProps) {
-  // 卸载整个 Canvas 时也会触发 R3F 的自动清理，加上我们的手动 dispose 更安全
+  const normalizedType = weatherType || 'sunny';
+
+  const getMeta = (type: string) => {
+    switch (type) {
+      case 'sunny':
+        return {
+          icon: '☀️',
+          name: '晴朗',
+          desc: '阳光正好',
+          gradient: 'from-orange-100 via-paper-50 to-paper-100',
+          border: 'border-orange-200/60',
+          glow: 'bg-orange-300/20',
+        };
+      case 'cloudy':
+        return {
+          icon: '⛅',
+          name: '多云',
+          desc: '云层轻覆',
+          gradient: 'from-slate-100 via-paper-50 to-blue-50',
+          border: 'border-slate-200/70',
+          glow: 'bg-slate-300/20',
+        };
+      case 'rainy':
+        return {
+          icon: '🌧️',
+          name: '下雨',
+          desc: '雨声入梦',
+          gradient: 'from-blue-100 via-paper-50 to-slate-100',
+          border: 'border-blue-200/70',
+          glow: 'bg-blue-300/20',
+        };
+      case 'snowy':
+        return {
+          icon: '❄️',
+          name: '下雪',
+          desc: '雪意温柔',
+          gradient: 'from-blue-50 via-paper-50 to-white',
+          border: 'border-blue-100/80',
+          glow: 'bg-blue-200/20',
+        };
+      default:
+        return {
+          icon: '🌤️',
+          name: '天气',
+          desc: '云光交织',
+          gradient: 'from-paper-50 via-paper-100 to-blue-50',
+          border: 'border-paper-200/70',
+          glow: 'bg-paper-200/30',
+        };
+    }
+  };
+
+  const meta = getMeta(normalizedType);
+
   return (
     <div className="absolute inset-0 z-0 pointer-events-auto">
-      <Canvas camera={{ position: [0, 0, 8], fov: 45 }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 5, 5]} intensity={1} />
-        <Bottle />
-        <WeatherEffects weatherType={weatherType} />
-        <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={1} />
-      </Canvas>
+      <div
+        className={[
+          'w-full h-full rounded-2xl border shadow-inner overflow-hidden relative',
+          'bg-gradient-to-br',
+          meta.gradient,
+          meta.border,
+        ].join(' ')}
+      >
+        <div className="absolute inset-0 bg-white/25 backdrop-blur-[2px] pointer-events-none" />
+        <div className={['absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl', meta.glow].join(' ')} />
+        <div className={['absolute -bottom-28 -left-28 w-80 h-80 rounded-full blur-3xl', meta.glow].join(' ')} />
+
+        <div className="relative z-10 h-full w-full flex flex-col items-center justify-center gap-4 px-6">
+          <div className="text-7xl drop-shadow-lg">{meta.icon}</div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="text-xl font-serif font-semibold tracking-widest text-ink-900">
+              {meta.name}
+            </div>
+            <div className="text-sm text-ink-600 bg-white/60 border border-white/70 px-4 py-1.5 rounded-full backdrop-blur-md shadow-sm">
+              {meta.desc}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,26 +1,30 @@
-import promptAction from '@ohos.promptAction';
-import { SectionCard } from '../../components/SectionCard';
+import promptAction from '@ohos.promptAction'
+import { SectionCard } from '../../components/SectionCard'
 import {
-  CheckInMood,
   CheckInPayload,
-  FieldBoundary,
   HOME_CHECKIN_PAGE_DEFINITION,
-  HomeCheckInState
-} from '../../common/ApiModels';
-import { appRepository } from '../../services/AppRepository';
+  HomeCheckInState,
+  TodayCheckInStatusResponse,
+  TrackedMetric,
+  UserProfileResponse,
+  getTrackedMetricLabel,
+  resolveCityLabel
+} from '../../common/ApiModels'
+import { appSession } from '../../common/AppSession'
+import { appRepository } from '../../services/AppRepository'
 
 interface MoodOption {
-  value: CheckInMood
+  value: string
   label: string
   accentColor: string
   mutedColor: string
 }
 
 const MOOD_OPTIONS: MoodOption[] = [
-  { value: CheckInMood.HAPPY, label: '开心', accentColor: '#E66A3D', mutedColor: '#FFF0EA' },
-  { value: CheckInMood.CALM, label: '平静', accentColor: '#2F6BFF', mutedColor: '#EAF0FF' },
-  { value: CheckInMood.SAD, label: '低落', accentColor: '#5B6477', mutedColor: '#EEF1F5' }
-];
+  { value: 'happy', label: '开心', accentColor: '#E66A3D', mutedColor: '#FFF0EA' },
+  { value: 'calm', label: '平静', accentColor: '#2F6BFF', mutedColor: '#EAF0FF' },
+  { value: 'sad', label: '低落', accentColor: '#5B6477', mutedColor: '#EEF1F5' }
+]
 
 @Component
 export struct HomeTab {
@@ -29,17 +33,50 @@ export struct HomeTab {
   @State selectedMood: string = ''
   @State stepsInput: string = ''
   @State heartRateInput: string = ''
+  @State bloodPressureInput: string = ''
+  @State bloodSugarInput: string = ''
+  @State sleepInput: string = ''
   @State isSubmitting: boolean = false
-  @State submitMessage: string = '首个迁移页已对齐 miniapp 首页逻辑，先完成心情与步数打卡。'
+  @State submitMessage: string = '将按服务端今日打卡状态口径加载窗口、摘要和可编辑指标。'
   @State lastRecordId: string = ''
+  @State profile: UserProfileResponse | null = null
+  @State todayStatus: TodayCheckInStatusResponse | null = null
 
-  private readonly userId: string = 'mock-user-123'
+  aboutToAppear(): void {
+    this.loadData()
+  }
+
+  private loadData(): void {
+    const userId = appSession.getUserId()
+    if (!userId) {
+      this.submitMessage = '当前未读取到登录用户，请先返回登录页。'
+      return
+    }
+
+    appRepository.getUserProfile(userId).then((response) => {
+      this.profile = response.data
+      appSession.setProfile(response.data)
+      return appRepository.getTodayCheckInStatus(userId)
+    }).then((response) => {
+      this.todayStatus = response.data
+      this.selectedMood = response.data.form.initialValues.mood ?? ''
+      this.stepsInput = response.data.form.initialValues.steps ? String(response.data.form.initialValues.steps) : ''
+      this.heartRateInput = response.data.form.initialValues.heartRate ? String(response.data.form.initialValues.heartRate) : ''
+      this.submitMessage = response.data.window.promptMessage
+    }).catch((error: Error) => {
+      this.submitMessage = '打卡状态加载失败，请稍后重试。'
+      promptAction.showToast({ message: error.message })
+    })
+  }
 
   private getStateSnapshot(): HomeCheckInState {
     return {
       selectedMood: this.selectedMood,
       stepsInput: this.stepsInput,
       heartRateInput: this.heartRateInput,
+      bloodPressureInput: this.bloodPressureInput,
+      bloodSugarInput: this.bloodSugarInput,
+      sleepInput: this.sleepInput,
       isSubmitting: this.isSubmitting,
       submitMessage: this.submitMessage,
       lastRecordId: this.lastRecordId
@@ -56,34 +93,100 @@ export struct HomeTab {
   }
 
   private buildPayload(state: HomeCheckInState): CheckInPayload | null {
+    const userId = appSession.getUserId()
+    if (!userId) {
+      this.submitMessage = '当前未读取到登录用户。'
+      return null
+    }
+
     if (!state.selectedMood) {
       promptAction.showToast({ message: '请选择心情' })
       this.submitMessage = '缺少必填状态：selectedMood。'
       return null
     }
 
-    if (!state.stepsInput) {
+    if (this.supportsMetric('steps') && !state.stepsInput) {
       promptAction.showToast({ message: '请输入步数' })
       this.submitMessage = '缺少必填状态：stepsInput。'
       return null
     }
 
     const payload: CheckInPayload = {
-      userId: this.userId,
+      userId: userId,
       mood: state.selectedMood,
-      steps: Number(state.stepsInput),
+      steps: state.stepsInput ? Number(state.stepsInput) : 0,
       timestamp: Date.now()
     }
 
     if (state.heartRateInput) {
       payload.heartRate = Number(state.heartRateInput)
     }
+    if (state.bloodPressureInput) {
+      payload.bloodPressure = state.bloodPressureInput
+    }
+    if (state.bloodSugarInput) {
+      payload.bloodSugar = Number(state.bloodSugarInput)
+    }
+    if (state.sleepInput) {
+      payload.sleep = state.sleepInput
+    }
+
+    payload.metricsData = {}
+    if (this.supportsMetric('mood')) {
+      payload.metricsData.mood = state.selectedMood
+    }
+    if (this.supportsMetric('steps') && state.stepsInput) {
+      payload.metricsData.steps = Number(state.stepsInput)
+    }
+    if (this.supportsMetric('heartRate') && state.heartRateInput) {
+      payload.metricsData.heartRate = Number(state.heartRateInput)
+    }
+    if (this.supportsMetric('bloodPressure') && state.bloodPressureInput) {
+      payload.metricsData.bloodPressure = state.bloodPressureInput
+    }
+    if (this.supportsMetric('bloodSugar') && state.bloodSugarInput) {
+      payload.metricsData.bloodSugar = Number(state.bloodSugarInput)
+    }
+    if (this.supportsMetric('sleep') && state.sleepInput) {
+      payload.metricsData.sleep = state.sleepInput
+    }
 
     return payload
   }
 
+  private supportsMetric(metric: TrackedMetric): boolean {
+    return this.todayStatus?.form.editableMetrics.indexOf(metric) !== -1
+  }
+
+  private formatTime(timestamp?: number | null): string {
+    if (!timestamp) {
+      return '暂无'
+    }
+
+    return new Date(timestamp).toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  private formatWindow(): string {
+    if (!this.todayStatus) {
+      return '暂无'
+    }
+
+    return `${this.formatTime(this.todayStatus.window.opensAt)} - ${this.formatTime(this.todayStatus.window.closesAt)}`
+  }
+
   private submitCheckIn(): void {
     if (this.isSubmitting) {
+      return
+    }
+    if (this.todayStatus?.hasCheckedInToday) {
+      promptAction.showToast({ message: '今日已完成打卡' })
+      return
+    }
+    if (!this.todayStatus?.window.isWithinCheckInWindow) {
+      promptAction.showToast({ message: this.todayStatus?.window.promptMessage ?? '当前不在打卡时间内' })
       return
     }
 
@@ -98,12 +201,10 @@ export struct HomeTab {
 
     appRepository.submitCheckIn(payload).then((response) => {
       this.isSubmitting = false
-      this.selectedMood = ''
-      this.stepsInput = ''
-      this.heartRateInput = ''
       this.lastRecordId = response.data.recordId
       this.submitMessage = `${response.message}，recordId：${response.data.recordId}`
       promptAction.showToast({ message: response.message })
+      this.loadData()
     }).catch((error: Error) => {
       this.isSubmitting = false
       this.submitMessage = '打卡失败，请检查网络或稍后重试。'
@@ -145,42 +246,6 @@ export struct HomeTab {
     .borderRadius(22)
   }
 
-  @Builder
-  private buildBoundarySection(title: string, fields: FieldBoundary[], accentColor: string) {
-    Column({ space: 12 }) {
-      Text(title)
-        .fontSize(22)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#1F2A44')
-        .width('100%')
-
-      ForEach(fields, (item: FieldBoundary) => {
-        Column({ space: 6 }) {
-          Text(`${item.field} · ${item.type} · ${item.required ? '必填' : '可选'}`)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor('#20315F')
-            .width('100%')
-
-          Text(item.description)
-            .fontSize(16)
-            .lineHeight(24)
-            .fontColor('#5B6477')
-            .width('100%')
-        }
-        .width('100%')
-        .padding(14)
-        .backgroundColor('#FFFFFF')
-        .borderRadius(18)
-      }, (item: FieldBoundary) => item.field)
-    }
-    .width('100%')
-    .padding(18)
-    .backgroundColor('#F8FAFF')
-    .borderRadius(22)
-    .border({ width: 1, color: accentColor })
-  }
-
   build() {
     Scroll() {
       Column({ space: 16 }) {
@@ -202,6 +267,22 @@ export struct HomeTab {
           description: `母版：${HOME_CHECKIN_PAGE_DEFINITION.sourcePage}\n鸿蒙页：${HOME_CHECKIN_PAGE_DEFINITION.targetPage}\n实现入口：${HOME_CHECKIN_PAGE_DEFINITION.entryPoint}`,
           accentColor: '#91B4FF'
         })
+
+        if (this.profile) {
+          SectionCard({
+            title: '当前资料概览',
+            description: `称呼：${this.profile?.name ?? '未命名'}\n城市：${resolveCityLabel(this.profile?.city, this.profile?.cityCode) || '待完善'}\n家庭：${this.profile?.familyInfo?.familyName ?? '未连接家庭'}`,
+            accentColor: '#7FD8C3'
+          })
+        }
+
+        if (this.todayStatus) {
+          SectionCard({
+            title: '今日打卡状态',
+            description: `日期：${this.todayStatus.businessDate}\n窗口：${this.formatWindow()}\n提示：${this.todayStatus.window.promptMessage}\n当前：${this.todayStatus.hasCheckedInToday ? '已完成' : '待打卡'}`,
+            accentColor: '#F8B96A'
+          })
+        }
 
         Column({ space: 14 }) {
           Text('今天心情怎么样？')
@@ -233,27 +314,67 @@ export struct HomeTab {
         .backgroundColor('#FFFFFF')
         .borderRadius(22)
 
-        this.buildInputCard(
-          '今日步数',
-          '请输入步数',
-          this.stepsInput,
-          InputType.Number,
-          (value: string) => {
-            this.stepsInput = this.sanitizeNumericInput(value)
-          },
-          '提交前会映射为 request.steps:number。'
-        )
+        if (this.supportsMetric('steps')) {
+          this.buildInputCard(
+            '今日步数',
+            '请输入步数',
+            this.stepsInput,
+            InputType.Number,
+            (value: string) => {
+              this.stepsInput = this.sanitizeNumericInput(value)
+            },
+            '提交前会映射为 request.steps:number。'
+          )
+        }
 
-        this.buildInputCard(
-          '心率（可选）',
-          '如有设备数据可填写',
-          this.heartRateInput,
-          InputType.Number,
-          (value: string) => {
-            this.heartRateInput = this.sanitizeNumericInput(value)
-          },
-          '当前 miniapp 母版未开放该输入，鸿蒙端先作为接口预留字段。'
-        )
+        if (this.supportsMetric('heartRate')) {
+          this.buildInputCard(
+            '心率（可选）',
+            '如有设备数据可填写',
+            this.heartRateInput,
+            InputType.Number,
+            (value: string) => {
+              this.heartRateInput = this.sanitizeNumericInput(value)
+            },
+            '当前值会复用服务端 heartRate 字段。'
+          )
+        }
+
+        if (this.supportsMetric('bloodPressure')) {
+          this.buildInputCard(
+            '血压',
+            '例如 120/80',
+            this.bloodPressureInput,
+            InputType.Normal,
+            (value: string) => {
+              this.bloodPressureInput = value
+            }
+          )
+        }
+
+        if (this.supportsMetric('bloodSugar')) {
+          this.buildInputCard(
+            '血糖',
+            '请输入血糖值',
+            this.bloodSugarInput,
+            InputType.Number,
+            (value: string) => {
+              this.bloodSugarInput = this.sanitizeNumericInput(value)
+            }
+          )
+        }
+
+        if (this.supportsMetric('sleep')) {
+          this.buildInputCard(
+            '睡眠',
+            '例如 安稳、一般、易醒',
+            this.sleepInput,
+            InputType.Normal,
+            (value: string) => {
+              this.sleepInput = value
+            }
+          )
+        }
 
         Button(this.isSubmitting ? '提交中...' : '提交打卡')
           .width('100%')
@@ -261,7 +382,7 @@ export struct HomeTab {
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
           .backgroundColor('#2E7D32')
-          .enabled(!this.isSubmitting)
+          .enabled(!this.isSubmitting && !this.todayStatus?.hasCheckedInToday)
           .onClick(() => {
             this.submitCheckIn()
           })
@@ -287,9 +408,31 @@ export struct HomeTab {
           accentColor: '#7FD8C3'
         })
 
-        this.buildBoundarySection('UI 状态边界', HOME_CHECKIN_PAGE_DEFINITION.uiStateFields, '#91B4FF')
-        this.buildBoundarySection('请求字段边界', HOME_CHECKIN_PAGE_DEFINITION.requestFields, '#7FD8C3')
-        this.buildBoundarySection('响应字段边界', HOME_CHECKIN_PAGE_DEFINITION.responseFields, '#F8B96A')
+        if (this.todayStatus) {
+          Column({ space: 10 }) {
+            Text('已启用指标')
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#1F2A44')
+              .width('100%')
+
+            Row({ space: 10 }) {
+              ForEach(this.todayStatus.form.editableMetrics, (metric: TrackedMetric) => {
+                Text(getTrackedMetricLabel(metric))
+                  .fontSize(16)
+                  .fontColor('#20315F')
+                  .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                  .backgroundColor('#EEF4FF')
+                  .borderRadius(999)
+              }, (metric: TrackedMetric) => metric)
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .padding(18)
+          .backgroundColor('#FFFFFF')
+          .borderRadius(22)
+        }
       }
       .width('100%')
       .padding(20)

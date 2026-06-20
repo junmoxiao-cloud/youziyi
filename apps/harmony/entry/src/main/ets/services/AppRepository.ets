@@ -10,9 +10,16 @@ import {
 } from '../common/AppConfig';
 import {
   ApiResponse,
+  AuthResult,
   CareProfileDraft,
   CheckInPayload,
   CheckInResult,
+  FamilyCreateResult,
+  FamilyJoinResult,
+  TodayCheckInStatusResponse,
+  UserProfileResponse,
+  UserProfileUpdatePayload,
+  UserRole,
   VerificationResult,
   WarningStatusData,
   WeatherData
@@ -131,12 +138,60 @@ export class AppRepository {
       })
   }
 
+  register(name: string, password: string, role: UserRole, cityCode?: string): Promise<ApiResponse<AuthResult>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.register(name, password, role, cityCode)
+    }
+
+    return requestRemote<AuthResult>('/api/auth/register', http.RequestMethod.POST, {
+      name,
+      password,
+      role,
+      cityCode
+    })
+  }
+
+  login(name: string, password: string): Promise<ApiResponse<AuthResult>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.login(name, password)
+    }
+
+    return requestRemote<AuthResult>('/api/auth/login', http.RequestMethod.POST, {
+      name,
+      password
+    })
+  }
+
+  getUserProfile(userId: string): Promise<ApiResponse<UserProfileResponse>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.getUserProfile(userId)
+    }
+
+    return requestRemote<UserProfileResponse>(`/api/user/profile/${userId}`, http.RequestMethod.GET)
+  }
+
+  updateUserProfile(payload: UserProfileUpdatePayload): Promise<ApiResponse<UserProfileResponse>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.updateUserProfile(payload)
+    }
+
+    return requestRemote<UserProfileResponse>('/api/user/profile/update', http.RequestMethod.POST, payload)
+  }
+
   submitCheckIn(payload: CheckInPayload): Promise<ApiResponse<CheckInResult>> {
     if (isMockMode(APP_CONFIG.apiMode)) {
       return MockApi.submitCheckIn(payload);
     }
 
     return requestRemote<CheckInResult>('/api/health/checkin', http.RequestMethod.POST, payload)
+  }
+
+  getTodayCheckInStatus(userId: string): Promise<ApiResponse<TodayCheckInStatusResponse>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.getTodayCheckInStatus(userId)
+    }
+
+    return requestRemote<TodayCheckInStatusResponse>(`/api/health/checkin-status/${userId}`, http.RequestMethod.GET)
   }
 
   getWarningStatus(userId: string): Promise<ApiResponse<WarningStatusData>> {
@@ -153,6 +208,28 @@ export class AppRepository {
     }
 
     return requestRemote<WeatherData>(`/api/weather/current?cityCode=${cityCode}`, http.RequestMethod.GET)
+  }
+
+  createFamily(userId: string, familyName?: string): Promise<ApiResponse<FamilyCreateResult>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.createFamily(userId, familyName)
+    }
+
+    return requestRemote<FamilyCreateResult>('/api/family/create', http.RequestMethod.POST, {
+      userId,
+      familyName
+    })
+  }
+
+  joinFamily(userId: string, inviteCode: string): Promise<ApiResponse<FamilyJoinResult>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.joinFamily(userId, inviteCode)
+    }
+
+    return requestRemote<FamilyJoinResult>('/api/family/join', http.RequestMethod.POST, {
+      userId,
+      inviteCode
+    })
   }
 
   saveCareProfile(profile: CareProfileDraft): Promise<ApiResponse<CareProfileDraft>> {

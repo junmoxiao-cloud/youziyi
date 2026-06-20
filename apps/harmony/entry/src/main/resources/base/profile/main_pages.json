@@ -2,6 +2,8 @@
   "src": [
     "pages/Splash",
     "pages/Login",
+    "pages/Onboarding",
+    "pages/FamilyJoin",
     "pages/RoleSelect",
     "pages/CareProfile",
     "pages/Main"
