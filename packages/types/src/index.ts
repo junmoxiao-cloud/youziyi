@@ -256,6 +256,15 @@ export interface DailyHealthAggregatesResponse {
   recentDays: DailyHealthAggregateDay[];
 }
 
+export interface TodayHealthSnapshot {
+  userId: string;
+  businessDate: string;
+  hasCheckedIn: boolean;
+  latestCheckInAt: number | null;
+  summary: DailyHealthSummary;
+  latestRecord: CheckInRecordSummary | null;
+}
+
 // 健康记录实体
 export interface HealthRecord {
   id: string;
@@ -311,7 +320,7 @@ export const DAILY_CHECKIN_WINDOW_RULES = {
   checkInWindowStartHour: 5,
   checkInWindowEndHour: 23,
 } as const;
-export const DEFAULT_TRACKED_METRICS: TrackedMetric[] = ['mood', 'steps', 'heartRate'];
+export const DEFAULT_TRACKED_METRICS: TrackedMetric[] = ['mood'];
 
 const MS_PER_MINUTE = 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -491,8 +500,13 @@ export function normalizeTrackedMetrics(input?: unknown): TrackedMetric[] {
       )
     : [];
 
-  const uniqueMetrics = [...new Set([...DEFAULT_TRACKED_METRICS, ...resolved])];
-  return uniqueMetrics as TrackedMetric[];
+  const uniqueMetrics = [...new Set(resolved)];
+  if (uniqueMetrics.length === 0) {
+    return [];
+  }
+
+  const metricsWithoutMood = uniqueMetrics.filter((metric) => metric !== 'mood');
+  return [...DEFAULT_TRACKED_METRICS, ...metricsWithoutMood];
 }
 
 export function createCheckInFormInitialValues(
@@ -507,6 +521,35 @@ export function createCheckInFormInitialValues(
     steps: latestRecord.steps,
     heartRate: latestRecord.heartRate,
   };
+}
+
+export function resolveTodayHealthSnapshot(
+  todayStatus?: TodayCheckInStatusResponse | null,
+  dailyAggregates?: DailyHealthAggregatesResponse | null
+): TodayHealthSnapshot | null {
+  if (todayStatus) {
+    return {
+      userId: todayStatus.userId,
+      businessDate: todayStatus.businessDate,
+      hasCheckedIn: todayStatus.hasCheckedInToday,
+      latestCheckInAt: todayStatus.lastCheckInAt ?? todayStatus.today.latestCheckInAt,
+      summary: todayStatus.summary ?? todayStatus.today.summary ?? createEmptySummary(),
+      latestRecord: todayStatus.latestRecord ?? todayStatus.today.latestRecord,
+    };
+  }
+
+  if (dailyAggregates?.today) {
+    return {
+      userId: dailyAggregates.userId,
+      businessDate: dailyAggregates.today.date,
+      hasCheckedIn: dailyAggregates.today.hasCheckedIn,
+      latestCheckInAt: dailyAggregates.today.latestCheckInAt,
+      summary: dailyAggregates.today.summary ?? createEmptySummary(),
+      latestRecord: dailyAggregates.today.latestRecord,
+    };
+  }
+
+  return null;
 }
 
 export function summarizeDailyCheckInRecords(

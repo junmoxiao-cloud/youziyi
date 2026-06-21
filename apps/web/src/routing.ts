@@ -1,10 +1,12 @@
+import { normalizeTrackedMetrics } from '@youziyi/types';
+
 export interface RouteGuardProfile {
   trackedMetrics?: string[] | null;
   familyId?: string | null;
 }
 
 export function hasCompletedOnboarding(profile: RouteGuardProfile | null | undefined): boolean {
-  return Array.isArray(profile?.trackedMetrics) && profile.trackedMetrics.length > 0;
+  return normalizeTrackedMetrics(profile?.trackedMetrics).length > 0;
 }
 
 export function hasJoinedFamily(profile: RouteGuardProfile | null | undefined): boolean {

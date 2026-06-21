@@ -1,6 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { type CheckInMetricsData, type CheckInPeriod, type TrackedMetric, resolveCityLabel } from '@youziyi/types';
+import {
+  type CheckInMetricsData,
+  type CheckInPeriod,
+  type TodayCheckInStatusResponse,
+  type TrackedMetric,
+  normalizeTrackedMetrics,
+  resolveCityLabel,
+  resolveTodayHealthSnapshot,
+} from '@youziyi/types';
 import { useStore } from '../store';
 
 const MOODS = [
@@ -71,6 +79,44 @@ function getMetricCardLabel(metric: TrackedMetric): string {
   }
 }
 
+function getMoodLabel(mood: string | null | undefined): string {
+  switch (mood) {
+    case 'happy':
+      return '开心';
+    case 'calm':
+      return '平静';
+    case 'sad':
+      return '有点低落';
+    default:
+      return '暂无';
+  }
+}
+
+function formatTrackedSummary(metric: TrackedMetric, summary: { mood: string | null; steps: number | null; heartRate: number | null }): string | null {
+  switch (metric) {
+    case 'mood':
+      return `心情 ${getMoodLabel(summary.mood)}`;
+    case 'steps':
+      return `步数 ${summary.steps ?? '--'}`;
+    case 'heartRate':
+      return `心率 ${summary.heartRate ?? '--'}`;
+    default:
+      return null;
+  }
+}
+
+function buildCheckInReminderKey(status: TodayCheckInStatusResponse | null | undefined): string | null {
+  if (!status?.userId || !status.businessDate) {
+    return null;
+  }
+
+  return `${status.userId}:${status.businessDate}`;
+}
+
+function canPromptCheckIn(status: TodayCheckInStatusResponse | null | undefined): boolean {
+  return Boolean(status && !status.hasCheckedInToday && status.window?.isWithinCheckInWindow);
+}
+
 const CareDashboard: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -83,6 +129,8 @@ const CareDashboard: React.FC = () => {
     fetchHealthData,
     fetchDailyHealthAggregates,
     submitCheckIn,
+    shownCheckInReminderKeys,
+    markCheckInReminderShown,
   } = useStore();
   
   const [steps, setSteps] = useState<number>(0);
@@ -95,6 +143,8 @@ const CareDashboard: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [hydratedSnapshot, setHydratedSnapshot] = useState<string>('');
+  const [showCheckInReminder, setShowCheckInReminder] = useState(false);
+  const formSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -108,16 +158,34 @@ const CareDashboard: React.FC = () => {
 
   const trackedMetrics = useMemo<TrackedMetric[]>(() => {
     if (Array.isArray(todayCheckInStatus?.form.editableMetrics)) {
-      return todayCheckInStatus.form.editableMetrics;
+      return normalizeTrackedMetrics(todayCheckInStatus.form.editableMetrics);
     }
 
     return Array.isArray(userProfile?.trackedMetrics)
-      ? (userProfile.trackedMetrics as TrackedMetric[])
+      ? normalizeTrackedMetrics(userProfile.trackedMetrics)
       : [];
   }, [todayCheckInStatus, userProfile?.trackedMetrics]);
+  const summaryMetrics = useMemo(
+    () => trackedMetrics.filter((metric) => metric === 'mood' || metric === 'steps' || metric === 'heartRate'),
+    [trackedMetrics]
+  );
   const currentCityLabel = resolveCityLabel(undefined, userProfile?.cityCode) || '待完善城市';
   const windowPolicy = todayCheckInStatus?.window ?? null;
   const hydrateKey = `${todayCheckInStatus?.businessDate ?? 'none'}:${todayCheckInStatus?.lastCheckInAt ?? 'none'}`;
+  const todayHealthSnapshot = resolveTodayHealthSnapshot(todayCheckInStatus, dailyHealthAggregates);
+  const todaySummaryText = useMemo(() => {
+    if (!todayHealthSnapshot) {
+      return '等待今日状态';
+    }
+
+    const parts = summaryMetrics
+      .map((metric) => formatTrackedSummary(metric, todayHealthSnapshot.summary))
+      .filter((item): item is string => Boolean(item));
+
+    return parts.length > 0 ? parts.join(' / ') : '等待今日状态';
+  }, [summaryMetrics, todayHealthSnapshot]);
+  const reminderKey = buildCheckInReminderKey(todayCheckInStatus);
+  const shouldEncourageCheckIn = canPromptCheckIn(todayCheckInStatus);
   const isSubmitDisabled =
     isSubmitting ||
     !todayCheckInStatus ||
@@ -137,6 +205,25 @@ const CareDashboard: React.FC = () => {
     setHydratedSnapshot(hydrateKey);
   }, [hydrateKey, hydratedSnapshot, todayCheckInStatus]);
 
+  useEffect(() => {
+    if (!shouldEncourageCheckIn || !reminderKey) {
+      setShowCheckInReminder(false);
+      return;
+    }
+
+    if (shownCheckInReminderKeys.includes(reminderKey)) {
+      return;
+    }
+
+    setShowCheckInReminder(true);
+    markCheckInReminderShown(reminderKey);
+  }, [markCheckInReminderShown, reminderKey, shouldEncourageCheckIn, shownCheckInReminderKeys]);
+
+  const focusCheckInForm = () => {
+    formSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setShowCheckInReminder(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -151,7 +238,10 @@ const CareDashboard: React.FC = () => {
     }
 
     if (!trackedMetrics.length) {
-      setMessage({ type: 'error', text: '您的健康指标配置尚未完成，请先前往资料页完善。' });
+      setMessage({
+        type: 'error',
+        text: '当前阶段仅支持标准健康指标打卡，请先前往个人设置或 Onboarding 重新选择后再继续。',
+      });
       setIsSubmitting(false);
       return;
     }
@@ -233,6 +323,39 @@ const CareDashboard: React.FC = () => {
       <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-[#FDF6E3] rounded-full blur-[120px] pointer-events-none opacity-80"></div>
       <div className="absolute bottom-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-jade-100/50 rounded-full blur-[120px] pointer-events-none opacity-60"></div>
 
+      {showCheckInReminder && (
+        <div className="fixed left-1/2 top-6 z-50 w-[min(92vw,40rem)] -translate-x-1/2 rounded-[2rem] border border-cinnabar-200 bg-white/95 px-6 py-5 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-cinnabar-600">今日提醒</p>
+              <h3 className="mt-2 text-2xl font-serif text-ink-900">今天还没报平安，先来打个卡吧</h3>
+              <p className="mt-2 text-sm text-ink-600">
+                趁现在还在打卡时间里，记下今天的状态，家人会更安心。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCheckInReminder(false)}
+              className="rounded-full border border-paper-200 px-3 py-1 text-sm text-ink-500 hover:bg-paper-50"
+            >
+              稍后再看
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={focusCheckInForm}
+              className="rounded-full bg-cinnabar-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-cinnabar-600"
+            >
+              立即去打卡
+            </button>
+            <span className="rounded-full bg-paper-100 px-4 py-2 text-sm text-ink-600">
+              打卡时间：{formatWindowLabel(windowPolicy?.opensAt, windowPolicy?.closesAt)}
+            </span>
+          </div>
+        </div>
+      )}
+
       <header className="relative z-10 mb-8 w-full max-w-3xl flex justify-between items-center bg-white/40 backdrop-blur-md border border-white/60 px-8 py-4 rounded-3xl shadow-sm">
         <h1 className="text-3xl font-serif font-bold text-ink-900 tracking-wider drop-shadow-sm flex items-center gap-3">
           游子衣 
@@ -264,13 +387,13 @@ const CareDashboard: React.FC = () => {
         <h2 className="text-3xl font-serif mb-8 text-jade-700 text-center tracking-wide font-semibold">分享您的今天</h2>
         {!trackedMetrics.length && (
           <div className="mb-8 rounded-3xl border border-[#E5C07B] bg-[#FDF6E3] px-6 py-5 text-center text-lg text-[#8B6B3F]">
-            暂未读取到您的指标配置，请先去个人设置完善后再打卡。
+            当前阶段仅支持标准健康指标打卡。请先前往个人设置或 Onboarding 重新选择至少一项标准指标后再继续。
           </div>
         )}
         {todayCheckInStatus && (
           <div className="mb-8 space-y-4">
             <div className="rounded-3xl border border-jade-100 bg-jade-50/80 px-6 py-5 text-center">
-              <p className="text-sm text-jade-700">今日打卡策略</p>
+              <p className="text-sm text-jade-700">今日打卡提醒</p>
               <p className="mt-2 text-2xl font-serif text-jade-900">
                 {windowPolicy?.promptMessage || '今日打卡状态已更新'}
               </p>
@@ -279,7 +402,28 @@ const CareDashboard: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {shouldEncourageCheckIn && (
+              <div className="rounded-3xl border border-cinnabar-200 bg-[#FFF7F2] px-6 py-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-cinnabar-600">去打卡入口</p>
+                    <h3 className="mt-2 text-2xl font-serif text-ink-900">现在正好在打卡时间，记得报个平安</h3>
+                    <p className="mt-2 text-sm text-ink-600">
+                      记录完成后，家人会同步看到您今天的心情和状态。
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={focusCheckInForm}
+                    className="rounded-full bg-cinnabar-500 px-6 py-3 text-base font-medium text-white shadow-sm transition-colors hover:bg-cinnabar-600"
+                  >
+                    立即去打卡
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="rounded-3xl border border-white/70 bg-white/80 px-5 py-4 shadow-sm">
                 <p className="text-sm text-ink-500">今日状态</p>
                 <p className="mt-2 text-2xl font-serif text-ink-900">
@@ -296,6 +440,15 @@ const CareDashboard: React.FC = () => {
                 <p className="text-sm text-ink-500">最近打卡</p>
                 <p className="mt-2 text-2xl font-serif text-ink-900">
                   {formatTimeLabel(todayCheckInStatus.lastCheckInAt)}
+                </p>
+              </div>
+              <div className="rounded-3xl border border-white/70 bg-white/80 px-5 py-4 shadow-sm">
+                <p className="text-sm text-ink-500">今日摘要</p>
+                <p className="mt-2 text-base font-medium text-ink-900">
+                  {todaySummaryText}
+                </p>
+                <p className="mt-2 text-xs text-ink-500">
+                  完成后，家人会同步看到您今天的状态
                 </p>
               </div>
             </div>
@@ -315,7 +468,8 @@ const CareDashboard: React.FC = () => {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-10">
+        <div ref={formSectionRef}>
+          <form onSubmit={handleSubmit} className="space-y-10">
           {/* 心情选择 */}
           {trackedMetrics.includes('mood') && (
             <div className="bg-white/50 p-8 rounded-3xl border border-white/60 shadow-sm">
@@ -430,28 +584,29 @@ const CareDashboard: React.FC = () => {
           </div>
 
           {/* 提交按钮 */}
-          <button 
-            type="submit" 
-            disabled={isSubmitDisabled}
-            className="w-full bg-jade-600 hover:bg-jade-700 text-white text-3xl font-serif py-6 rounded-[2rem] shadow-xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 mt-4 tracking-widest"
-          >
-            {isSubmitting
-              ? '正在传递您的挂念...'
-              : todayCheckInStatus?.hasCheckedInToday
-                ? '今日已完成打卡'
-                : windowPolicy?.isWithinCheckInWindow
-                  ? '告诉孩子们'
-                  : '当前不在打卡时段'}
-          </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitDisabled}
+              className="w-full bg-jade-600 hover:bg-jade-700 text-white text-3xl font-serif py-6 rounded-[2rem] shadow-xl transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 mt-4 tracking-widest"
+            >
+              {isSubmitting
+                ? '正在传递您的挂念...'
+                : todayCheckInStatus?.hasCheckedInToday
+                  ? '今天已经报过平安了'
+                  : windowPolicy?.isWithinCheckInWindow
+                    ? '立即报个平安'
+                    : '当前不在打卡时间'}
+            </button>
 
-          {message && (
-            <div className={`p-6 rounded-2xl text-center text-xl font-serif shadow-sm animate-in fade-in slide-in-from-bottom-4 ${
-              message.type === 'success' ? 'bg-jade-100/90 text-jade-800 border border-jade-200' : 'bg-cinnabar-100/90 text-cinnabar-800 border border-cinnabar-200'
-            }`}>
-              {message.text}
-            </div>
-          )}
-        </form>
+            {message && (
+              <div className={`p-6 rounded-2xl text-center text-xl font-serif shadow-sm animate-in fade-in slide-in-from-bottom-4 ${
+                message.type === 'success' ? 'bg-jade-100/90 text-jade-800 border border-jade-200' : 'bg-cinnabar-100/90 text-cinnabar-800 border border-cinnabar-200'
+              }`}>
+                {message.text}
+              </div>
+            )}
+          </form>
+        </div>
 
         {dailyHealthAggregates && (
           <section className="mt-10 rounded-[2rem] border border-white/80 bg-white/60 p-8 shadow-sm">
@@ -459,7 +614,7 @@ const CareDashboard: React.FC = () => {
               <div>
                 <h3 className="text-2xl font-serif text-ink-900">最近几天的打卡记录</h3>
                 <p className="mt-2 text-sm text-ink-500">
-                  展示最近 {dailyHealthAggregates.requestedDays} 天的按天聚合结果，便于确认今日是否已回写。
+                  展示最近 {dailyHealthAggregates.requestedDays} 天的记录变化，方便回看这几天的状态。
                 </p>
               </div>
             </div>
@@ -477,15 +632,21 @@ const CareDashboard: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3 text-sm text-ink-700">
-                    <span className="rounded-full bg-paper-100 px-3 py-2">
-                      心情：{day.summary.mood ?? '暂无'}
-                    </span>
-                    <span className="rounded-full bg-paper-100 px-3 py-2">
-                      步数：{day.summary.steps ?? '--'}
-                    </span>
-                    <span className="rounded-full bg-paper-100 px-3 py-2">
-                      心率：{day.summary.heartRate ?? '--'}
-                    </span>
+                    {summaryMetrics.includes('mood') && (
+                      <span className="rounded-full bg-paper-100 px-3 py-2">
+                        心情：{day.summary.mood ?? '暂无'}
+                      </span>
+                    )}
+                    {summaryMetrics.includes('steps') && (
+                      <span className="rounded-full bg-paper-100 px-3 py-2">
+                        步数：{day.summary.steps ?? '--'}
+                      </span>
+                    )}
+                    {summaryMetrics.includes('heartRate') && (
+                      <span className="rounded-full bg-paper-100 px-3 py-2">
+                        心率：{day.summary.heartRate ?? '--'}
+                      </span>
+                    )}
                     <span className="rounded-full bg-paper-100 px-3 py-2">
                       最新：{formatTimeLabel(day.latestCheckInAt)}
                     </span>

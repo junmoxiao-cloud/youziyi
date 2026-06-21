@@ -25,6 +25,15 @@
 - 若联调阶段临时调整后端端口，必须同步更新环境变量、代理配置、启动脚本与相关文档，禁止仅修改某一端代码后继续联调。
 - 涉及认证、家庭连接、Onboarding、每日打卡、预警、天气、语音等接口时，各端请求路径与端口口径必须一致，避免出现单端直连旧端口的情况。
 
+## 1.1.1 公网域名与端侧入口约定
+
+- `https://www.youziyi.com` 为 Web 前端正式访问域名；浏览器访问该域名时，打开的是 Web 前端页面。
+- Web 端生产环境默认继续使用相对路径 `/api`，并由 `www.youziyi.com` 所在网关或反向代理将 `/api/*` 转发至后端服务；若后端对外独立暴露为 `https://api.youziyi.com`，也应作为网关的反代目标，而不是要求 Web 页面层直接改写所有请求地址。
+- `https://api.youziyi.com` 为统一公网后端 API 域名，供微信小程序、鸿蒙原生端及 Web 反代链路共同访问。
+- 微信小程序与鸿蒙端在生产环境中必须使用各自原生前端，并直接请求 `https://api.youziyi.com`；它们不应依赖 `www.youziyi.com` 加载 Web 页面来完成正式业务流程。
+- 微信小程序发布前，必须在微信公众平台将 `https://api.youziyi.com` 配置为合法 `request` 域名，并确保 HTTPS 证书、备案与域名校验满足平台要求。
+- 若公网域名、网关反代规则或端侧 API 入口发生变化，必须同步更新端侧配置、README、Rules 与相关部署文档，禁止出现 Web、小程序、鸿蒙分别指向不同生产 API 主域名的分叉状态。
+
 ## 1.2 角色字段约定
 
 - 项目采用真实多账户体系，合法角色仅允许 `elder` 与 `child` 两种枚举值。
@@ -39,6 +48,13 @@
 - 禁止仅修改某一层字段后，通过组件内兜底、页面临时映射或写死兼容分支掩盖上下游未同步的问题。
 - 若接口响应结构从数组改为对象包装，或从 `data` 直出改为 `data.records`、`data.items` 等嵌套形式，必须在文档中明确声明，并同步更新所有消费端读取路径。
 - 任何字段变更合并前，至少应完成一次 repo 范围检索，确认 API、shared、store、component、mock、测试与文档中的旧字段名已被处理。
+
+## 1.4 共享真源与阶段边界
+
+- 城市码与标签映射的单一真源固定为 `packages/types/src/index.ts`；Web 与 Server 直接消费共享定义，Harmony 仅允许消费同步产物 `apps/harmony/entry/src/main/ets/common/synced/SharedCityCatalog.ets`，禁止继续在 `ApiModels.ets`、页面或 mock 中各自维护 `BEIJING`、`SHANGHAI` 等分叉常量。
+- 当前已完成的家庭共享能力以 Web/Server 为准：登录后真实路由守卫、家庭连接成功后的稳态展示、家庭对方成员基础资料读取、天气来源说明、最小健康状态来源说明，以及今日打卡状态/按天聚合/时段窗口策略的统一协议。
+- 当前未完成的共享边界也属于正式协议内容：Harmony 第一阶段尚未完成“家庭对方成员资料 + 天气来源说明 + 最小健康摘要”的正式远程联调闭环，因此 README、Rules、页面说明和任务清单必须统一标记为未完成边界，禁止以本地兜底或 mock 文案伪装为已共享。
+- 若后续补齐上述鸿蒙共享展示或新增共享字段，必须将 API 文档、共享类型/常量、Harmony 同步产物、Web/Harmony 页面说明、README、Rules 与任务清单一并更新。
 
 ## 2. 核心业务接口
 
@@ -156,6 +172,8 @@
   - `form.editableMetrics` 为页面动态表单字段来源，优先级高于前端本地默认值。
   - `form.initialValues` 为当前表单的初始值，通常来自最近一次记录；若当天尚未打卡，可用来做最小预填。
   - `summary` 与 `today.summary` 均表示服务端按天聚合后的今日摘要，前端展示不得自行二次拼接旧缓存。
+  - Web 长辈打卡页、Web 陪伴页、Web 家庭页在展示“当天健康状态”时，必须共用该接口返回的今日摘要口径；禁止某一页读取 `summary`、另一页读取本地缓存或页面静态 mock。
+  - 当子女端需要查看家庭对方当天状态时，必须先通过 `GET /api/user/profile/:userId` 读取 `data.familyInfo.members[].userId`，再以“对方 userId”请求本接口；禁止继续以当前登录人的 `userId` 代替家庭共享对象。
 
 ### 2.1.2 健康记录按天聚合 (Daily Health Aggregates)
 用于 Web 端展示最近几天的打卡摘要、今日回写结果与时间维度趋势。
@@ -387,9 +405,12 @@
 - **字段说明**:
   - `data.cityCode`: 当前登录用户自己的真实城市编码，供当前角色天气请求、Onboarding 判空与资料页回显使用
   - `data.familyInfo.members[].cityCode`: 家庭成员的真实城市编码，供 Web 陪伴大屏按 `elder` / `child` 角色分别请求双方天气
+  - `data.familyInfo.members[].userId`: 家庭成员真实用户 ID，供子女端读取家庭对方的今日打卡状态、家庭页共享状态和后续跨端家庭视图使用
   - `data.familyInfo.members[].role`: 家庭成员身份，仅允许 `elder` 与 `child`
   - `data.familyInfo.members[].city`: 供展示或资料补充使用，不可替代 `cityCode` 作为天气接口查询参数
   - 若某个成员尚未完善 `cityCode`，前端必须保持保守空态，禁止回退为固定北京/上海假数据
+  - 家庭创建或加入成功后，前端必须立即重新请求本接口，以服务端最新返回的 `familyId` 与 `familyInfo` 作为“连接成功后稳定展示”的唯一依据；禁止直接用提交前缓存状态假定已连接完成
+- 当前 Web 已完成对 `familyInfo.members[]` 的基础资料展示与共享来源说明；Harmony 当前阶段仅允许展示基础家庭成员信息，不得据此宣称“家庭对方资料、天气来源和最小健康摘要”已完成正式共享闭环。
 
 ## 3. 本地联调故障排查
 

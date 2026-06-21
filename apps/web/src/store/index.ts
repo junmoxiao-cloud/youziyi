@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import { resolveCityLabel as resolveSharedCityLabel } from '@youziyi/types';
+import {
+  normalizeTrackedMetrics,
+  resolveCityLabel as resolveSharedCityLabel,
+} from '@youziyi/types';
 import type {
   ApiResponse,
   CheckInMetricsData,
@@ -31,6 +34,10 @@ export type WeatherData = SharedWeatherData;
 export type VoiceData = VoiceListItem;
 
 export interface UserProfile {
+  userId?: string;
+  name?: string;
+  role?: UserRole | null;
+  city?: string | null;
   cityCode: string;
   trackedMetrics: string[];
   familyId?: string | null;
@@ -51,6 +58,7 @@ interface AppState {
   elderWeather: WeatherData | null;
   childWeather: WeatherData | null;
   voices: VoiceData[];
+  shownCheckInReminderKeys: string[];
   
   viewMode: 'companion' | 'care';
   
@@ -58,6 +66,7 @@ interface AppState {
   setAuth: (isAuthenticated: boolean, userId: string | null) => void;
   setRole: (role: 'elder' | 'child' | null) => void;
   setViewMode: (mode: 'companion' | 'care') => void;
+  markCheckInReminderShown: (reminderKey: string) => void;
   logout: () => void;
   
   fetchUserProfile: (userId: string) => Promise<UserProfile | null>;
@@ -76,8 +85,11 @@ interface AppState {
   fetchWeathers: (elderCityCode?: string | null, childCityCode?: string | null) => Promise<void>;
   fetchVoices: (userId: string) => Promise<void>;
   addVoice: (voice: VoiceData) => void;
-  createFamily: (userId: string) => Promise<{ inviteCode: string } | null>;
-  joinFamily: (userId: string, inviteCode: string) => Promise<{ success: boolean; message?: string }>;
+  createFamily: (userId: string) => Promise<{ inviteCode: string; profile: UserProfile | null } | null>;
+  joinFamily: (
+    userId: string,
+    inviteCode: string
+  ) => Promise<{ success: boolean; message?: string; profile?: UserProfile | null }>;
   login: (name: string, password: string) => Promise<{success: boolean, userId?: string, message?: string}>;
   register: (name: string, password: string, role: 'elder' | 'child', cityCode?: string) => Promise<{success: boolean, userId?: string, message?: string}>;
 }
@@ -88,6 +100,10 @@ const MOCK_VOICES: VoiceData[] = [
 ];
 
 const EMPTY_USER_PROFILE: UserProfile = {
+  userId: '',
+  name: '',
+  role: null,
+  city: null,
   cityCode: '',
   trackedMetrics: [],
   familyId: null,
@@ -130,16 +146,6 @@ async function readApiResponse<T>(res: Response): Promise<ApiResponse<T> | null>
   }
 }
 
-function buildWeatherFallback(cityCode: string): WeatherData {
-  return {
-    cityCode,
-    cityName: resolveCityLabel(undefined, cityCode),
-    weatherType: 'sunny',
-    temperature: 20,
-    humidity: 50,
-  };
-}
-
 function normalizeHealthSummary(summary: TodayCheckInStatusResponse['summary'] | null | undefined): HealthData | null {
   if (!summary) {
     return null;
@@ -157,7 +163,9 @@ function normalizeHealthSummary(summary: TodayCheckInStatusResponse['summary'] |
 }
 
 function normalizeUserProfile(data: UserProfileResponse | null | undefined): UserProfile {
-  const trackedMetrics = Array.isArray(data?.trackedMetrics) ? data.trackedMetrics : [];
+  const trackedMetrics = Array.isArray(data?.trackedMetrics)
+    ? normalizeTrackedMetrics(data.trackedMetrics)
+    : [];
   const familyInfo: FamilyInfo | null = data?.familyInfo
     ? {
         ...data.familyInfo,
@@ -175,6 +183,10 @@ function normalizeUserProfile(data: UserProfileResponse | null | undefined): Use
     : null;
 
   return {
+    userId: data?.userId ?? '',
+    name: data?.name ?? '',
+    role: data?.role ?? null,
+    city: data?.city ?? null,
     cityCode: typeof data?.cityCode === 'string' ? data.cityCode : '',
     trackedMetrics,
     familyId: data?.familyId ?? null,
@@ -195,6 +207,7 @@ export const useStore = create<AppState>((set, get) => ({
   elderWeather: null,
   childWeather: null,
   voices: [],
+  shownCheckInReminderKeys: [],
   viewMode: 'companion',
 
   setAuth: (isAuthenticated, userId) =>
@@ -211,7 +224,8 @@ export const useStore = create<AppState>((set, get) => ({
           warningStatus: null,
           elderWeather: null,
           childWeather: null,
-          voices: []
+          voices: [],
+          shownCheckInReminderKeys: [],
         };
       }
       if (state.userId !== userId) {
@@ -226,14 +240,27 @@ export const useStore = create<AppState>((set, get) => ({
           warningStatus: null,
           elderWeather: null,
           childWeather: null,
-          voices: []
+          voices: [],
+          shownCheckInReminderKeys: [],
         };
       }
       return { isAuthenticated, userId };
     }),
   setRole: (role) => set({ userRole: role }),
   setViewMode: (mode) => set({ viewMode: mode }),
-  logout: () => set({ isAuthenticated: false, userRole: null, userId: null }),
+  markCheckInReminderShown: (reminderKey) =>
+    set((state) => (
+      state.shownCheckInReminderKeys.includes(reminderKey)
+        ? state
+        : { shownCheckInReminderKeys: [...state.shownCheckInReminderKeys, reminderKey] }
+    )),
+  logout: () =>
+    set({
+      isAuthenticated: false,
+      userRole: null,
+      userId: null,
+      shownCheckInReminderKeys: [],
+    }),
 
   addVoice: (voice) => set((state) => ({ voices: [...state.voices, normalizeVoiceItem(voice, state.voices.length)] })),
 
@@ -263,10 +290,18 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateUserProfile: async (userId: string, profile: Partial<UserProfile>) => {
     try {
+      const normalizedTrackedMetrics =
+        profile.trackedMetrics !== undefined
+          ? normalizeTrackedMetrics(profile.trackedMetrics)
+          : undefined;
       const res = await fetch('/api/user/profile/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...profile })
+        body: JSON.stringify({
+          userId,
+          ...profile,
+          ...(normalizedTrackedMetrics !== undefined ? { trackedMetrics: normalizedTrackedMetrics } : {}),
+        })
       });
       if (res.ok) {
         const data = await res.json();
@@ -400,7 +435,7 @@ export const useStore = create<AppState>((set, get) => ({
         console.error(`Failed to fetch weather for city ${normalizedCityCode}:`, error);
       }
 
-      return buildWeatherFallback(normalizedCityCode);
+      return null;
     };
 
     try {
@@ -412,10 +447,9 @@ export const useStore = create<AppState>((set, get) => ({
       set({ elderWeather: elderRes, childWeather: childRes });
     } catch (error) {
       console.error('Failed to fetch weather data:', error);
-      // Mock fallback
       set({
-        elderWeather: elderCityCode ? buildWeatherFallback(elderCityCode) : null,
-        childWeather: childCityCode ? buildWeatherFallback(childCityCode) : null,
+        elderWeather: null,
+        childWeather: null,
       });
     }
   },
@@ -454,8 +488,8 @@ export const useStore = create<AppState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         if (data.code === 0) {
-          await get().fetchUserProfile(userId);
-          return { inviteCode: data.data.inviteCode };
+          const profile = await get().fetchUserProfile(userId);
+          return { inviteCode: data.data.inviteCode, profile };
         }
       }
       return null;
@@ -474,8 +508,8 @@ export const useStore = create<AppState>((set, get) => ({
       });
       const data = await res.json();
       if (res.ok && data.code === 0) {
-        await get().fetchUserProfile(userId);
-        return { success: true };
+        const profile = await get().fetchUserProfile(userId);
+        return { success: true, profile };
       }
       return { success: false, message: data.message || '加入失败' };
     } catch (e) {
@@ -495,7 +529,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (res.ok && data?.code === 0 && data.data?.userId) {
         return { success: true, userId: data.data.userId };
       }
-      return { success: false, message: data?.message || '登录失败，请检查后端服务和数据库迁移状态' };
+      return { success: false, message: data?.message || '登录失败，请稍后再试' };
     } catch (e) {
       console.error(e);
       return { success: false, message: '网络错误' };
@@ -513,7 +547,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (res.ok && data?.code === 0 && data.data?.userId) {
         return { success: true, userId: data.data.userId };
       }
-      return { success: false, message: data?.message || '注册失败，请检查后端服务和数据库迁移状态' };
+      return { success: false, message: data?.message || '注册失败，请稍后再试' };
     } catch (e) {
       console.error(e);
       return { success: false, message: '网络错误' };

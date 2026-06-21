@@ -5,7 +5,7 @@ import { useStore } from '../store';
 const NavigationBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { viewMode, userRole } = useStore();
+  const { viewMode, userRole, userId, todayCheckInStatus } = useStore();
   const homePath = userRole === 'elder'
     ? '/care'
     : userRole === 'child'
@@ -13,10 +13,17 @@ const NavigationBar: React.FC = () => {
       : viewMode === 'care'
         ? '/care'
         : '/companion';
+  const hasPendingCheckInEntry = Boolean(
+    userRole === 'elder' &&
+    userId &&
+    todayCheckInStatus?.userId === userId &&
+    !todayCheckInStatus.hasCheckedInToday &&
+    todayCheckInStatus.window?.isWithinCheckInWindow
+  );
 
   const navItems = [
     {
-      label: '主页',
+      label: hasPendingCheckInEntry ? '去打卡' : '主页',
       path: homePath,
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -55,11 +62,18 @@ const NavigationBar: React.FC = () => {
               key={item.label}
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center justify-center w-20 h-full rounded-2xl transition-colors ${
-                isActive ? 'text-[#4CA682]' : 'text-gray-400'
+                isActive ? 'text-[#4CA682]' : hasPendingCheckInEntry && item.path === '/care' ? 'text-cinnabar-500' : 'text-gray-400'
               } hover:bg-[#F0EBE1] active:bg-[#E6E0D4]`}
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="mb-1">{item.icon}</div>
+              <div className="relative mb-1">
+                {item.icon}
+                {hasPendingCheckInEntry && item.path === '/care' && (
+                  <span className="absolute -right-2 -top-1 rounded-full bg-cinnabar-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    今日
+                  </span>
+                )}
+              </div>
               <span className="text-sm font-medium">{item.label}</span>
             </button>
           );

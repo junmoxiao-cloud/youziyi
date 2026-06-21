@@ -725,15 +725,7 @@ app.get('/api/user/profile/:userId', async (req: Request, res: Response) => {
       }))
     } : null;
 
-    let trackedMetrics: string[] = [];
-    if (user.trackedMetrics) {
-      try {
-        const parsed = JSON.parse(user.trackedMetrics);
-        trackedMetrics = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        trackedMetrics = [];
-      }
-    }
+    const trackedMetrics = normalizeTrackedMetrics(user.trackedMetrics);
 
     const response: ApiResponse = {
       code: 0,
@@ -768,7 +760,16 @@ app.post('/api/user/profile/update', async (req: Request, res: Response) => {
     if (cityCode !== undefined) dataToUpdate.cityCode = cityCode;
     if (city !== undefined) dataToUpdate.city = city;
     if (trackedMetrics !== undefined) {
-      dataToUpdate.trackedMetrics = typeof trackedMetrics === 'string' ? trackedMetrics : JSON.stringify(trackedMetrics);
+      const normalizedTrackedMetrics = normalizeTrackedMetrics(trackedMetrics);
+      if (normalizedTrackedMetrics.length === 0) {
+        return res.status(400).json({
+          code: 400,
+          data: null,
+          message: '当前阶段仅支持标准健康指标，请至少保留心情后再保存。',
+        });
+      }
+
+      dataToUpdate.trackedMetrics = JSON.stringify(normalizedTrackedMetrics);
     }
 
     const user = await prisma.user.update({
@@ -784,7 +785,7 @@ app.post('/api/user/profile/update', async (req: Request, res: Response) => {
         role: user.role,
         cityCode: user.cityCode,
         city: user.city,
-        trackedMetrics: user.trackedMetrics ? JSON.parse(user.trackedMetrics) : null
+        trackedMetrics: normalizeTrackedMetrics(user.trackedMetrics)
       },
       message: '个人信息更新成功'
     };

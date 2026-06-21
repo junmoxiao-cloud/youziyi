@@ -1,3 +1,9 @@
+import {
+  SharedCityOption,
+  SHARED_CITY_OPTIONS,
+  resolveSharedCityLabel
+} from './synced/SharedCityCatalog'
+
 export interface ApiResponse<T> {
   code: number
   data: T
@@ -33,10 +39,7 @@ export interface AuthResult {
   cityCode?: string
 }
 
-export interface CityOption {
-  code: string
-  name: string
-}
+export type CityOption = SharedCityOption
 
 export interface MetricOption {
   id: TrackedMetric
@@ -44,14 +47,7 @@ export interface MetricOption {
   defaultSelected: boolean
 }
 
-export const CITY_OPTIONS: CityOption[] = [
-  { code: 'SHANGHAI', name: '上海' },
-  { code: 'BEIJING', name: '北京' },
-  { code: 'GUANGZHOU', name: '广州' },
-  { code: 'SHENZHEN', name: '深圳' },
-  { code: 'HANGZHOU', name: '杭州' },
-  { code: 'CHENGDU', name: '成都' }
-]
+export const CITY_OPTIONS: CityOption[] = SHARED_CITY_OPTIONS
 
 export const DEFAULT_TRACKED_METRICS: TrackedMetric[] = ['mood', 'steps']
 
@@ -392,22 +388,7 @@ export interface TodayCheckInStatusResponse {
 }
 
 export function resolveCityLabel(city?: string | null, cityCode?: string | null): string {
-  if (city && city.trim().length > 0) {
-    return city.trim()
-  }
-
-  if (!cityCode || cityCode.trim().length === 0) {
-    return ''
-  }
-
-  const normalizedCode = cityCode.trim().toUpperCase()
-  for (let index = 0; index < CITY_OPTIONS.length; index += 1) {
-    if (CITY_OPTIONS[index].code === normalizedCode) {
-      return CITY_OPTIONS[index].name
-    }
-  }
-
-  return cityCode.trim()
+  return resolveSharedCityLabel(city, cityCode)
 }
 
 export function getTrackedMetricLabel(metric: TrackedMetric): string {

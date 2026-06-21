@@ -6,14 +6,14 @@
 
 - [x] 仅在 `c:\Users\dou12\Desktop\youziyi\youziyi-oss\apps\harmony` 内完成 Task5 最小实现
 - [x] 接入登录/注册最小闭环，登录成功后按资料完整度跳转到 Onboarding、家庭连接或主页面
-- [x] 接入 Onboarding 页面，复用现有城市常量口径与动态打卡指标配置
+- [x] 接入 Onboarding 页面，复用共享同步后的城市常量口径与动态打卡指标配置
 - [x] 接入家庭连接页面，支持创建家庭、输入牵挂码加入家庭，并展示家庭基础信息
 - [x] 接入每日打卡页面，复用 `GET /api/health/checkin-status/:userId` 与 `POST /api/health/checkin` 的接口字段口径
 - [x] 在鸿蒙端展示账户资料、Onboarding 配置与家庭基础成员信息
 
 ## 变更说明
 
-- [x] `apps/harmony/entry/src/main/ets/common/ApiModels.ets`：补齐登录/资料/家庭/今日打卡状态相关类型，并同步城市常量与指标标签
+- [x] `apps/harmony/entry/src/main/ets/common/ApiModels.ets`：补齐登录/资料/家庭/今日打卡状态相关类型，并改为消费城市共享同步产物与指标标签
 - [x] `apps/harmony/entry/src/main/ets/common/AppSession.ets`：新增轻量会话状态与登录后首跳路由判断
 - [x] `apps/harmony/entry/src/main/ets/services/AppRepository.ets`：补齐认证、资料、家庭连接、今日打卡状态接口封装
 - [x] `apps/harmony/entry/src/main/ets/mock/MockApi.ets`：补齐最小本地数据流，支撑注册、登录、Onboarding、家庭连接与打卡演示
@@ -73,3 +73,20 @@
 - [x] `apps/server/package-lock.json` 变更量较大，推送前应再次确认是否为预期依赖收敛结果
 - [x] Git 输出存在多处 `LF will be replaced by CRLF` 提示，提交前需确认换行符策略，避免引入纯格式噪音
 - [x] `tasks/checklist.md` 当前为未跟踪文件，如需随本次提交保留，需显式加入暂存区
+
+## Task6 迁移与交付说明
+
+- [x] 在 `.trae/rules/技术开发规则.md` 中补充“字段变更需全仓联动维护”和“Web 母版稳定后再迁移鸿蒙”的执行原则
+- [x] 在仓内说明中明确城市码共享常量、今日打卡状态、按天聚合和时段/窗口策略属于鸿蒙迁移前置条件
+- [x] 在 `apps/harmony/README.md` 中记录鸿蒙第一阶段能力边界、依赖接口、交付约束与后续待办
+- [x] 同步更新 `.trae/specs/stabilize-web-and-launch-harmony` 下的 `tasks.md`、`checklist.md`、`spec.md`，确保状态可追踪
+- [x] 按要求未启动服务、未运行测试，仅进行静态文档修改与静态诊断
+
+## Task7 共享真源与边界说明
+
+- [x] 新增 `apps/harmony/entry/src/main/ets/common/synced/SharedCityCatalog.ets`，作为由 `packages/types/src/index.ts` 单向同步的城市真源产物
+- [x] 清理 `apps/harmony/entry/src/main/ets/common/ApiModels.ets` 中自维护的 `CITY_OPTIONS` 与城市标签解析逻辑，改为统一消费共享同步产物
+- [x] 在 `.trae/rules/API接口规范.md`、`.trae/rules/技术开发规则.md`、`README.md` 与 `apps/harmony/README.md` 中统一记录已完成共享能力与未完成边界
+- [x] 明确 Harmony 当前尚未完成家庭对方成员资料、天气来源说明和最小健康摘要的正式远程联调闭环，避免文档或页面暗示“已共享完成”
+- [x] 同步更新 `.trae/specs/stabilize-web-and-launch-harmony/tasks.md` 与 `checklist.md` 的真实状态
+- [x] 按要求未启动服务、未执行运行测试，仅进行静态代码与文档修改

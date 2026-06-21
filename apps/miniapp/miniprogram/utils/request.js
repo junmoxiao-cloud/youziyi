@@ -2,8 +2,20 @@
 // apps/miniapp/miniprogram/utils/request.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.request = request;
-// 假设本地或开发环境后端地址
-const BASE_URL = 'http://localhost:3000';
+function getEnvBaseURL() {
+    try {
+        const { miniProgram } = wx.getAccountInfoSync();
+        if (miniProgram.envVersion === 'develop') {
+            return 'http://localhost:3001';
+        }
+        return 'https://api.youziyi.com';
+    }
+    catch (error) {
+        console.error('获取小程序环境信息失败', error);
+        return 'https://api.youziyi.com';
+    }
+}
+const BASE_URL = getEnvBaseURL();
 function request(options) {
     return new Promise((resolve, reject) => {
         wx.request({

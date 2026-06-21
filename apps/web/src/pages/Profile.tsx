@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CITY_OPTIONS } from '@youziyi/types';
+import { CITY_OPTIONS, type TrackedMetric, normalizeTrackedMetrics } from '@youziyi/types';
 import { useStore } from '../store';
 
-const DEFAULT_METRICS = [
+const DEFAULT_METRICS: Array<{ value: TrackedMetric; label: string; icon: string }> = [
   { value: 'mood', label: '心情记录', icon: '😊' },
   { value: 'steps', label: '每日步数', icon: '👣' },
   { value: 'heartRate', label: '心率检测', icon: '❤️' },
@@ -19,9 +19,7 @@ const Profile: React.FC = () => {
   const [cityCode, setCityCode] = useState<string>('');
   const [customCity, setCustomCity] = useState<string>('');
   
-  const [trackedMetrics, setTrackedMetrics] = useState<string[]>([]);
-  const [customMetric, setCustomMetric] = useState<string>('');
-  const [customMetricsList, setCustomMetricsList] = useState<{value: string, label: string, icon: string}[]>([]);
+  const [trackedMetrics, setTrackedMetrics] = useState<TrackedMetric[]>(['mood']);
   
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -46,37 +44,25 @@ const Profile: React.FC = () => {
         setCustomCity(savedCityCode);
       }
       
-      const savedMetrics = Array.isArray(userProfile.trackedMetrics) ? userProfile.trackedMetrics : [];
-      setTrackedMetrics(savedMetrics);
-      
-      // Reconstruct custom metrics from saved data
-      const defaultValues = DEFAULT_METRICS.map(m => m.value);
-      const customSaved = savedMetrics.filter(m => !defaultValues.includes(m) && m.startsWith('custom_'));
-      if (customSaved.length > 0) {
-        // We only add if they don't exist yet to prevent duplicates on re-render
-        if (customMetricsList.length === 0) {
-           // In a real app, labels would be saved properly. Here we fallback to ID for demo
-           setCustomMetricsList(customSaved.map(id => ({ value: id, label: '自定义指标', icon: '📌'})));
-        }
-      }
+      const savedMetrics = Array.isArray(userProfile.trackedMetrics)
+        ? normalizeTrackedMetrics(userProfile.trackedMetrics)
+        : [];
+      setTrackedMetrics(savedMetrics.length > 0 ? savedMetrics : ['mood']);
     }
   }, [userProfile]);
 
-  const handleToggleMetric = (value: string) => {
-    setTrackedMetrics(prev => 
-      prev.includes(value) 
-        ? prev.filter(m => m !== value)
-        : [...prev, value]
-    );
-  };
-
-  const handleAddCustomMetric = () => {
-    if (customMetric.trim()) {
-      const newMetricId = `custom_${customMetric.trim()}_${Date.now()}`;
-      setCustomMetricsList([...customMetricsList, { value: newMetricId, label: customMetric.trim(), icon: '📌' }]);
-      setTrackedMetrics([...trackedMetrics, newMetricId]);
-      setCustomMetric('');
+  const handleToggleMetric = (value: TrackedMetric) => {
+    if (value === 'mood') {
+      return;
     }
+
+    setTrackedMetrics(prev =>
+      normalizeTrackedMetrics(
+        prev.includes(value)
+          ? prev.filter(m => m !== value)
+          : [...prev, value]
+      )
+    );
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -92,7 +78,9 @@ const Profile: React.FC = () => {
       return;
     }
     
-    if (trackedMetrics.length === 0) {
+    const normalizedTrackedMetrics = normalizeTrackedMetrics(trackedMetrics);
+
+    if (normalizedTrackedMetrics.length === 0) {
       setMessage({ type: 'error', text: '请至少选择一项需要记录的健康指标哦' });
       setIsSaving(false);
       return;
@@ -108,7 +96,7 @@ const Profile: React.FC = () => {
 
     const success = await updateUserProfile(currentUserId, {
       cityCode: finalCityCode,
-      trackedMetrics
+      trackedMetrics: normalizedTrackedMetrics
     });
 
     if (success) {
@@ -186,18 +174,24 @@ const Profile: React.FC = () => {
           {/* 健康指标选择 */}
           <div>
             <label className="block text-lg font-serif mb-4 text-ink-700">您希望日常记录哪些健康指标？</label>
+            <p className="mb-4 rounded-2xl border border-paper-200 bg-paper-50 px-4 py-3 text-sm text-ink-500">
+              当前阶段仅支持心情、步数、心率、血压、血糖、睡眠 6 项标准指标。`心情记录` 为必选项，自定义指标暂不开放打卡。
+            </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-              {[...DEFAULT_METRICS, ...customMetricsList].map(metric => {
+              {DEFAULT_METRICS.map(metric => {
                 const isSelected = trackedMetrics.includes(metric.value);
+                const isRequired = metric.value === 'mood';
                 return (
-                  <div 
+                  <button
+                    type="button"
                     key={metric.value}
                     onClick={() => handleToggleMetric(metric.value)}
-                    className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex flex-col items-center ${
+                    disabled={isRequired}
+                    className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center ${
                       isSelected 
                         ? 'border-jade-500 bg-jade-50' 
                         : 'border-paper-200 bg-paper-50 hover:bg-paper-100'
-                    }`}
+                    } ${isRequired ? 'cursor-not-allowed opacity-85' : 'cursor-pointer'}`}
                   >
                     <span className="text-3xl mb-2">{metric.icon}</span>
                     <span className="text-md font-serif text-ink-700 text-center">{metric.label}</span>
@@ -206,29 +200,9 @@ const Profile: React.FC = () => {
                     }`}>
                       {isSelected && <span className="text-white text-xs">✓</span>}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
-            </div>
-            
-            {/* Custom Metric Input */}
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="添加其他自定义指标 (例如: 每日饮水量)"
-                value={customMetric}
-                onChange={(e) => setCustomMetric(e.target.value)}
-                onKeyPress={(e) => { e.key === 'Enter' && (e.preventDefault(), handleAddCustomMetric()); }}
-                className="flex-1 text-lg p-4 border border-paper-300 rounded-xl focus:outline-none focus:border-jade-500 focus:bg-white bg-paper-50 transition-colors"
-              />
-              <button 
-                type="button"
-                onClick={handleAddCustomMetric}
-                disabled={!customMetric.trim()}
-                className="bg-paper-200 text-ink-700 px-6 rounded-xl font-medium hover:bg-jade-100 hover:text-jade-800 disabled:opacity-50 transition-colors"
-              >
-                添加指标
-              </button>
             </div>
           </div>
 

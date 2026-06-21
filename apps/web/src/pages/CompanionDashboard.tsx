@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, type UserProfile } from '../store';
+import { resolveCityLabel, resolveTodayHealthSnapshot } from '@youziyi/types';
+import { useStore } from '../store';
 import WeatherBottle from '../components/WeatherBottle';
 import VoiceTimeline from '../components/VoiceTimeline';
 
@@ -44,36 +45,91 @@ function getMoodIcon(mood: string) {
   }
 }
 
-function resolveWeatherCityCode(
-  userProfile: UserProfile | null,
-  currentUserRole: 'elder' | 'child' | null,
-  targetRole: 'elder' | 'child',
+function formatDateShort(dateKey: string): string {
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) {
+    return dateKey;
+  }
+
+  return `${Number(parts[1])}/${Number(parts[2])}`;
+}
+
+function formatTimeLabel(timestamp: number | null | undefined): string {
+  if (!timestamp) {
+    return '暂无';
+  }
+
+  return new Date(timestamp).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function normalizeCityCode(cityCode?: string | null): string {
+  return typeof cityCode === 'string' ? cityCode.trim().toUpperCase() : '';
+}
+
+function weatherMatchesCityCode(
+  weather: { cityCode?: string | null } | null | undefined,
+  cityCode?: string | null,
+): boolean {
+  const expectedCityCode = normalizeCityCode(cityCode);
+  if (!expectedCityCode) {
+    return false;
+  }
+
+  return normalizeCityCode(weather?.cityCode) === expectedCityCode;
+}
+
+function resolveFamilyWeatherCityCodes(
+  profile: {
+    role?: string | null;
+    cityCode?: string | null;
+    familyInfo?: {
+      members?: Array<{
+        userId: string;
+        role: string;
+        cityCode?: string | null;
+      }>;
+    } | null;
+  } | null,
+  userId: string,
+  fallbackRole?: string | null,
 ) {
-  const familyMemberCityCode = userProfile?.familyInfo?.members.find(
-    (member) => member.role === targetRole && member.cityCode,
-  )?.cityCode;
+  const familyMembers = profile?.familyInfo?.members ?? [];
+  const currentProfileRole = profile?.role ?? fallbackRole ?? null;
+  const currentMember =
+    familyMembers.find((member) => member.userId === userId) ??
+    familyMembers.find((member) => member.role === currentProfileRole) ??
+    null;
+  const counterpartMember =
+    familyMembers.find((member) => member.userId !== userId) ??
+    familyMembers.find((member) => member.role !== currentProfileRole) ??
+    null;
+  const elderMember =
+    familyMembers.find((member) => member.role === 'elder') ??
+    (currentProfileRole === 'elder' ? currentMember : counterpartMember);
+  const childMember =
+    familyMembers.find((member) => member.role === 'child') ??
+    (currentProfileRole === 'child' ? currentMember : counterpartMember);
 
-  if (familyMemberCityCode) {
-    return familyMemberCityCode;
-  }
-
-  if (currentUserRole === targetRole && userProfile?.cityCode) {
-    return userProfile.cityCode;
-  }
-
-  return null;
+  return {
+    elderCityCode: elderMember?.cityCode ?? (currentProfileRole === 'elder' ? profile?.cityCode : null),
+    childCityCode: childMember?.cityCode ?? (currentProfileRole === 'child' ? profile?.cityCode : null),
+  };
 }
 
 const CompanionDashboard: React.FC = () => {
   const navigate = useNavigate();
   const {
-    healthData,
     warningStatus,
     elderWeather,
     childWeather,
     voices,
     setViewMode,
+    fetchUserProfile,
     fetchHealthData,
+    fetchDailyHealthAggregates,
     fetchWarningStatus,
     fetchWeathers,
     fetchVoices,
@@ -81,52 +137,150 @@ const CompanionDashboard: React.FC = () => {
     userId,
     userProfile,
     userRole,
+    todayCheckInStatus,
+    dailyHealthAggregates,
+    shownCheckInReminderKeys,
+    markCheckInReminderShown,
   } = useStore();
 
   const [currentTime, setCurrentTime] = React.useState(() => Date.now());
   const [inviteCode, setInviteCode] = React.useState<string | null>(null);
   const [actionMessage, setActionMessage] = React.useState<string | null>(null);
+  const [showCheckInReminder, setShowCheckInReminder] = React.useState(false);
   const safeVoices = Array.isArray(voices) ? voices : [];
-  const elderCityCode = React.useMemo(
-    () => resolveWeatherCityCode(userProfile, userRole, 'elder'),
-    [userProfile, userRole],
+  const currentProfileRole = userProfile?.role ?? userRole;
+  const familyMembers = userProfile?.familyInfo?.members ?? [];
+  const currentMember = useMemo(
+    () =>
+      familyMembers.find((member) => member.userId === userId) ??
+      familyMembers.find((member) => member.role === currentProfileRole) ??
+      null,
+    [currentProfileRole, familyMembers, userId],
   );
-  const childCityCode = React.useMemo(
-    () => resolveWeatherCityCode(userProfile, userRole, 'child'),
-    [userProfile, userRole],
+  const counterpartMember = useMemo(
+    () =>
+      familyMembers.find((member) => member.userId !== userId) ??
+      familyMembers.find((member) => member.role !== currentProfileRole) ??
+      null,
+    [currentProfileRole, familyMembers, userId],
   );
-  const elderCityLabel = elderWeather?.cityName || elderCityCode || '待完善城市';
-  const childCityLabel = childWeather?.cityName || childCityCode || '待连接家人';
+  const elderMember = useMemo(
+    () =>
+      familyMembers.find((member) => member.role === 'elder') ??
+      (currentProfileRole === 'elder' ? currentMember : counterpartMember),
+    [counterpartMember, currentMember, currentProfileRole, familyMembers],
+  );
+  const childMember = useMemo(
+    () =>
+      familyMembers.find((member) => member.role === 'child') ??
+      (currentProfileRole === 'child' ? currentMember : counterpartMember),
+    [counterpartMember, currentMember, currentProfileRole, familyMembers],
+  );
+  const sharedHealthTargetMember = currentProfileRole === 'child'
+    ? counterpartMember ?? elderMember ?? currentMember
+    : currentMember ?? elderMember ?? counterpartMember;
+  const sharedHealthTargetUserId = sharedHealthTargetMember?.userId ?? userId;
+  const elderCityCode = elderMember?.cityCode ?? (currentProfileRole === 'elder' ? userProfile?.cityCode : null);
+  const childCityCode = childMember?.cityCode ?? (currentProfileRole === 'child' ? userProfile?.cityCode : null);
+  const elderWeatherReady = weatherMatchesCityCode(elderWeather, elderCityCode);
+  const childWeatherReady = weatherMatchesCityCode(childWeather, childCityCode);
+  const elderWeatherDisplay = elderWeatherReady ? elderWeather : null;
+  const childWeatherDisplay = childWeatherReady ? childWeather : null;
+  const elderCityLabel = resolveCityLabel(elderMember?.city, elderCityCode) || '待完善城市';
+  const childCityLabel = resolveCityLabel(childMember?.city, childCityCode) || '待连接家人';
+  const todayHealthSnapshot = useMemo(
+    () => resolveTodayHealthSnapshot(todayCheckInStatus, dailyHealthAggregates),
+    [dailyHealthAggregates, todayCheckInStatus],
+  );
+  const chartDays = dailyHealthAggregates?.recentDays ?? [];
+  const chartLabels = chartDays.map((day) => formatDateShort(day.date));
+  const chartSteps = chartDays.map((day) => day.summary.steps ?? 0);
+  const chartHeartRates = chartDays.map((day) => day.summary.heartRate ?? 0);
+  const counterpartProfileLabel = currentProfileRole === 'child' ? '对方基础资料' : '家庭成员资料';
+  const reminderKey = todayCheckInStatus?.userId && todayCheckInStatus.businessDate
+    ? `${todayCheckInStatus.userId}:${todayCheckInStatus.businessDate}`
+    : null;
+  const shouldEncourageCheckIn = Boolean(
+    todayCheckInStatus &&
+    !todayCheckInStatus.hasCheckedInToday &&
+    todayCheckInStatus.window?.isWithinCheckInWindow
+  );
+  const reminderTitle = currentProfileRole === 'child'
+    ? `${sharedHealthTargetMember?.name ?? '家人'}今天还没报平安`
+    : '今天还没报平安';
+  const reminderDescription = currentProfileRole === 'child'
+    ? '现在还在打卡时间里，去关怀页看看今日记录，也提醒家人别错过今天的打卡。'
+    : '现在还在打卡时间里，去关怀页完成今天的记录吧。';
+  const reminderActionLabel = currentProfileRole === 'child' ? '去打卡入口' : '立即去打卡';
 
   useEffect(() => {
     if (!userId) {
       return;
     }
 
-    const currentUserId = userId;
-    fetchHealthData(currentUserId);
-    fetchWarningStatus(currentUserId);
-    fetchWeathers(elderCityCode, childCityCode);
-    fetchVoices(currentUserId);
-    
-    const timer = setInterval(() => {
-      fetchHealthData(currentUserId);
-      fetchWarningStatus(currentUserId);
-      fetchWeathers(elderCityCode, childCityCode);
-      fetchVoices(currentUserId);
+    const syncDashboard = async () => {
+      const latestProfile = await fetchUserProfile(userId);
+      const latestWeatherCityCodes = resolveFamilyWeatherCityCodes(latestProfile, userId, userRole);
+
+      await Promise.all([
+        fetchWarningStatus(userId),
+        fetchWeathers(latestWeatherCityCodes.elderCityCode, latestWeatherCityCodes.childCityCode),
+        fetchVoices(userId),
+        ...(sharedHealthTargetUserId
+          ? [
+              fetchHealthData(sharedHealthTargetUserId),
+              fetchDailyHealthAggregates(sharedHealthTargetUserId, 6),
+            ]
+          : []),
+      ]);
       setCurrentTime(Date.now());
+    };
+
+    void syncDashboard();
+    const timer = setInterval(() => {
+      void syncDashboard();
     }, 60000);
-    
+
     return () => {
       clearInterval(timer);
     };
-  }, [childCityCode, elderCityCode, fetchHealthData, fetchWarningStatus, fetchWeathers, fetchVoices, userId]);
+  }, [
+    fetchDailyHealthAggregates,
+    fetchHealthData,
+    fetchUserProfile,
+    fetchVoices,
+    fetchWarningStatus,
+    fetchWeathers,
+    sharedHealthTargetUserId,
+    userId,
+    userRole,
+  ]);
+
+  useEffect(() => {
+    if (!shouldEncourageCheckIn || !reminderKey) {
+      setShowCheckInReminder(false);
+      return;
+    }
+
+    if (shownCheckInReminderKeys.includes(reminderKey)) {
+      return;
+    }
+
+    setShowCheckInReminder(true);
+    markCheckInReminderShown(reminderKey);
+  }, [markCheckInReminderShown, reminderKey, shouldEncourageCheckIn, shownCheckInReminderKeys]);
 
   const timeSinceInteraction = warningStatus && Number.isFinite(warningStatus.lastInteractionTime)
     ? Math.max(0, currentTime - warningStatus.lastInteractionTime)
     : 0;
 
   const handleSwitchMode = () => {
+    setViewMode('care');
+    navigate('/care');
+  };
+
+  const handleOpenCheckInEntry = () => {
+    setShowCheckInReminder(false);
     setViewMode('care');
     navigate('/care');
   };
@@ -209,6 +363,33 @@ const CompanionDashboard: React.FC = () => {
           })}
         </div>
       </header>
+      {showCheckInReminder && (
+        <div className="relative z-10 mb-4 rounded-[2rem] border border-cinnabar-200 bg-white/90 px-6 py-5 shadow-lg backdrop-blur-xl">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-cinnabar-600">今日提醒</p>
+              <h3 className="mt-2 text-2xl font-serif text-ink-900">{reminderTitle}</h3>
+              <p className="mt-2 text-sm text-ink-600">{reminderDescription}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleOpenCheckInEntry}
+                className="rounded-full bg-cinnabar-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-cinnabar-600"
+              >
+                {reminderActionLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCheckInReminder(false)}
+                className="rounded-full border border-paper-200 px-5 py-2.5 text-sm text-ink-500 transition-colors hover:bg-paper-50"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {actionMessage && (
         <div className="relative z-10 mb-4 rounded-3xl border border-cinnabar-200 bg-cinnabar-50/90 px-6 py-4 text-base text-cinnabar-700 shadow-sm">
           {actionMessage}
@@ -224,13 +405,39 @@ const CompanionDashboard: React.FC = () => {
           <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80">
             <h2 className="text-xl font-serif font-semibold mb-6 text-ink-800 flex items-center">
               <span className="w-2 h-2 bg-jade-400 rounded-full mr-3 shadow-[0_0_8px_rgba(107,168,126,0.8)]"></span>
-              今日心情
+              今日共享状态
             </h2>
-            <div className="flex flex-col items-center justify-center py-6 bg-gradient-to-b from-white/80 to-white/40 rounded-2xl border border-white/50 shadow-inner">
-              <span className="text-6xl drop-shadow-md mb-4">{healthData ? getMoodIcon(healthData.mood).split(' ')[0] : '...'}</span>
-              <span className="text-xl font-serif text-ink-700 font-medium">
-                {healthData ? getMoodIcon(healthData.mood).split(' ')[1] : '获取中'}
-              </span>
+            <div className="rounded-2xl border border-white/50 bg-gradient-to-b from-white/80 to-white/40 p-5 shadow-inner">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-ink-500">
+                    {sharedHealthTargetMember ? `共享对象：${sharedHealthTargetMember.name}` : '共享对象待连接'}
+                  </p>
+                  <p className="mt-2 text-2xl font-serif text-ink-900">
+                    {todayHealthSnapshot?.hasCheckedIn ? '今日已更新' : '今日待打卡'}
+                  </p>
+                </div>
+                <span className="text-5xl drop-shadow-md">
+                  {todayHealthSnapshot ? getMoodIcon(todayHealthSnapshot.summary.mood ?? '').split(' ')[0] : '...'}
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-xl bg-white/70 px-3 py-3">
+                  <p className="text-ink-500">心情</p>
+                  <p className="mt-1 font-medium text-ink-900">
+                    {todayHealthSnapshot ? getMoodIcon(todayHealthSnapshot.summary.mood ?? '').split(' ')[1] : '获取中'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white/70 px-3 py-3">
+                  <p className="text-ink-500">步数</p>
+                  <p className="mt-1 font-medium text-ink-900">{todayHealthSnapshot?.summary.steps ?? '--'}</p>
+                </div>
+                <div className="rounded-xl bg-white/70 px-3 py-3">
+                  <p className="text-ink-500">心率</p>
+                  <p className="mt-1 font-medium text-ink-900">{todayHealthSnapshot?.summary.heartRate ?? '--'}</p>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-ink-500">最近更新：{formatTimeLabel(todayHealthSnapshot?.latestCheckInAt)}</p>
             </div>
           </div>
 
@@ -291,20 +498,27 @@ const CompanionDashboard: React.FC = () => {
               <div className="bg-gradient-to-br from-white/90 to-white/50 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center justify-center border border-white/60 shadow-sm transition-transform hover:-translate-y-1">
                 <h3 className="text-sm font-sans tracking-widest text-ink-400 mb-2 uppercase">家乡</h3>
                 <p className="text-2xl font-serif font-bold text-ink-900 mb-3">{elderCityLabel}</p>
-                <div className="text-6xl my-2 drop-shadow-md filter">{elderWeather ? getWeatherIcon(elderWeather.weatherType) : '...'}</div>
+                <div className="text-6xl my-2 drop-shadow-md filter">{elderWeatherDisplay ? getWeatherIcon(elderWeatherDisplay.weatherType) : '...'}</div>
                 <p className="text-lg text-ink-700 font-medium mt-2">
-                  {elderWeather ? `${getWeatherName(elderWeather.weatherType)} · ${elderWeather.temperature}°C` : '等待天气数据'}
+                  {elderWeatherDisplay ? `${getWeatherName(elderWeatherDisplay.weatherType)} · ${elderWeatherDisplay.temperature}°C` : '天气暂不可用'}
                 </p>
               </div>
-              
+
               <div className="bg-gradient-to-br from-white/90 to-white/50 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center justify-center border border-white/60 shadow-sm transition-transform hover:-translate-y-1">
                 <h3 className="text-sm font-sans tracking-widest text-ink-400 mb-2 uppercase">远方</h3>
                 <p className="text-2xl font-serif font-bold text-ink-900 mb-3">{childCityLabel}</p>
-                <div className="text-6xl my-2 drop-shadow-md filter">{childWeather ? getWeatherIcon(childWeather.weatherType) : '...'}</div>
+                <div className="text-6xl my-2 drop-shadow-md filter">{childWeatherDisplay ? getWeatherIcon(childWeatherDisplay.weatherType) : '...'}</div>
                 <p className="text-lg text-ink-700 font-medium mt-2">
-                  {childWeather ? `${getWeatherName(childWeather.weatherType)} · ${childWeather.temperature}°C` : '等待天气数据'}
+                  {childWeatherDisplay ? `${getWeatherName(childWeatherDisplay.weatherType)} · ${childWeatherDisplay.temperature}°C` : '天气暂不可用'}
                 </p>
               </div>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-white/50 bg-white/55 px-5 py-4 text-sm text-ink-600">
+              <p className="font-medium text-ink-800">天气更新说明</p>
+              <p className="mt-2">
+                天气会先按家人最新资料中的城市刷新；当资料城市与天气结果暂时不一致时，这里会保守显示为暂不可用。
+              </p>
             </div>
 
             <div className="flex-1 w-full relative rounded-2xl overflow-hidden bg-gradient-to-b from-paper-100/50 to-transparent border border-white/40 shadow-inner">
@@ -313,7 +527,7 @@ const CompanionDashboard: React.FC = () => {
               </div>
               {/* Weather Bottle Component */}
               <div className="absolute inset-0">
-                <WeatherBottle weatherType={elderWeather?.weatherType || 'sunny'} />
+                <WeatherBottle weatherType={elderWeatherDisplay?.weatherType ?? 'unknown'} />
               </div>
             </div>
           </div>
@@ -325,17 +539,47 @@ const CompanionDashboard: React.FC = () => {
           <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 h-1/2 flex flex-col">
             <h2 className="text-xl font-serif font-semibold mb-4 text-ink-800 flex items-center">
               <span className="w-2 h-2 bg-jade-400 rounded-full mr-3 shadow-[0_0_8px_rgba(107,168,126,0.8)]"></span>
-              健康足迹
+              {counterpartProfileLabel}
             </h2>
+            <div className="mb-4 grid grid-cols-1 gap-3">
+              <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3">
+                <p className="text-xs text-ink-500">称呼与身份</p>
+                <p className="mt-1 text-lg font-serif text-ink-900">
+                  {counterpartMember ? `${counterpartMember.name} · ${counterpartMember.role === 'elder' ? '长辈' : '晚辈'}` : '等待家人加入'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3">
+                  <p className="text-xs text-ink-500">所在城市</p>
+                  <p className="mt-1 text-base font-medium text-ink-900">
+                    {counterpartMember
+                      ? resolveCityLabel(counterpartMember.city, counterpartMember.cityCode) || '待完善'
+                      : '待连接'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3">
+                  <p className="text-xs text-ink-500">家庭状态</p>
+                  <p className="mt-1 text-base font-medium text-ink-900">
+                    {familyMembers.length > 1 ? `已连接 ${familyMembers.length} 人` : '等待家人加入'}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3 text-sm text-ink-600">
+                <p className="font-medium text-ink-800">今日状态说明</p>
+                <p className="mt-2">
+                  当前页展示的是家庭共享对象今天最新的报平安内容，打卡后会自动刷新。
+                </p>
+              </div>
+            </div>
             <div className="flex-1 w-full bg-white/40 rounded-2xl border border-white/50 p-2">
-              <ReactECharts 
+              <ReactECharts
                 option={{
                   tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.9)', borderColor: '#E6DFD3', textStyle: { color: '#2B2D2F' } },
                   legend: { data: ['步数', '心率'], textStyle: { color: '#4A4D50' }, top: 0 },
                   grid: { left: '2%', right: '2%', bottom: '5%', top: '15%', containLabel: true },
                   xAxis: {
                     type: 'category',
-                    data: ['前5天', '前4天', '前3天', '前2天', '昨天', '今日'],
+                    data: chartLabels,
                     axisLabel: { color: '#8E9195' },
                     axisLine: { lineStyle: { color: '#D0D2D5' } },
                     axisTick: { show: false }
@@ -345,8 +589,8 @@ const CompanionDashboard: React.FC = () => {
                     { type: 'value', name: '', axisLabel: { show: false }, splitLine: { show: false } }
                   ],
                   series: [
-                    { name: '步数', type: 'bar', data: [3000, 4500, 3200, 5000, 4200, healthData?.steps || 0], barWidth: '40%', itemStyle: { color: 'lightern(rgba(150, 199, 167, 1))', borderRadius: [6, 6, 0, 0] } },
-                    { name: '心率', type: 'line', yAxisIndex: 1, data: [72, 75, 71, 78, 74, healthData?.heartRate || 0], itemStyle: { color: '#D25642' }, smooth: true, symbolSize: 8, lineStyle: { width: 3, shadowColor: 'rgba(210,86,66,0.3)', shadowBlur: 10 } }
+                    { name: '步数', type: 'bar', data: chartSteps, barWidth: '40%', itemStyle: { color: '#96C7A7', borderRadius: [6, 6, 0, 0] } },
+                    { name: '心率', type: 'line', yAxisIndex: 1, data: chartHeartRates, itemStyle: { color: '#D25642' }, smooth: true, symbolSize: 8, lineStyle: { width: 3, shadowColor: 'rgba(210,86,66,0.3)', shadowBlur: 10 } }
                   ]
                 }}
                 style={{ height: '100%', width: '100%' }}

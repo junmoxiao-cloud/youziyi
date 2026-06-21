@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CITY_OPTIONS } from '@youziyi/types';
+import { CITY_OPTIONS, type TrackedMetric, normalizeTrackedMetrics } from '@youziyi/types';
 import { useStore } from '../store';
 
-const DEFAULT_METRICS = [
+const DEFAULT_METRICS: Array<{ id: TrackedMetric; label: string; icon: string; default: boolean }> = [
   { id: 'mood', label: '心情', icon: '😊', default: true },
   { id: 'steps', label: '步数', icon: '👣', default: true },
   { id: 'heartRate', label: '心率', icon: '❤️', default: false },
@@ -20,29 +20,17 @@ const Onboarding: React.FC = () => {
   const [customCity, setCustomCity] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   
-  const [trackedMetrics, setTrackedMetrics] = useState<string[]>(
-    DEFAULT_METRICS.filter(m => m.default).map(m => m.id)
+  const [trackedMetrics, setTrackedMetrics] = useState<TrackedMetric[]>(
+    normalizeTrackedMetrics(DEFAULT_METRICS.filter(m => m.default).map(m => m.id))
   );
-  
-  const [customMetric, setCustomMetric] = useState<string>('');
-  const [customMetricsList, setCustomMetricsList] = useState<{id: string, label: string, icon: string}[]>([]);
 
-  const toggleMetric = (id: string) => {
+  const toggleMetric = (id: TrackedMetric) => {
     // Mood is required
     if (id === 'mood') return;
     
-    setTrackedMetrics(prev => 
-      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+    setTrackedMetrics(prev =>
+      normalizeTrackedMetrics(prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
     );
-  };
-
-  const handleAddCustomMetric = () => {
-    if (customMetric.trim() && !customMetricsList.some(m => m.label === customMetric.trim())) {
-      const newMetricId = `custom_${Date.now()}`;
-      setCustomMetricsList([...customMetricsList, { id: newMetricId, label: customMetric.trim(), icon: '📌' }]);
-      setTrackedMetrics([...trackedMetrics, newMetricId]);
-      setCustomMetric('');
-    }
   };
 
   const handleComplete = async () => {
@@ -60,7 +48,10 @@ const Onboarding: React.FC = () => {
         return;
       }
 
-      const success = await updateUserProfile(userId, { cityCode: finalCityCode, trackedMetrics });
+      const success = await updateUserProfile(userId, {
+        cityCode: finalCityCode,
+        trackedMetrics: normalizeTrackedMetrics(trackedMetrics),
+      });
       if (success) {
         const profile = await fetchUserProfile(userId);
         if (!profile?.familyId) {
@@ -141,8 +132,11 @@ const Onboarding: React.FC = () => {
             <p className="text-sm text-ink-400 font-sans mb-4">
               我们将为您量身定制极简打卡面板，不被打扰。
             </p>
+            <p className="mb-4 rounded-2xl border border-paper-200 bg-paper-100 px-4 py-3 text-sm text-ink-500">
+              当前阶段仅支持心情、步数、心率、血压、血糖、睡眠 6 项标准指标。`心情` 为必选项，自定义指标暂不开放打卡。
+            </p>
             <div className="grid grid-cols-3 gap-3 mb-4">
-              {[...DEFAULT_METRICS, ...customMetricsList].map(m => {
+              {DEFAULT_METRICS.map(m => {
                 const isSelected = trackedMetrics.includes(m.id);
                 const isRequired = m.id === 'mood';
                 return (
@@ -161,25 +155,6 @@ const Onboarding: React.FC = () => {
                   </button>
                 );
               })}
-            </div>
-            {/* Custom Metric Input */}
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="添加其他关注指标 (如: 体重)"
-                value={customMetric}
-                onChange={(e) => setCustomMetric(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddCustomMetric()}
-                className="flex-1 py-3 px-5 rounded-2xl text-md font-sans bg-paper-100 border border-paper-200 outline-none focus:bg-white focus:border-jade-300 transition-colors"
-              />
-              <button 
-                type="button"
-                onClick={handleAddCustomMetric}
-                disabled={!customMetric.trim()}
-                className="bg-jade-100 text-jade-700 px-6 rounded-2xl font-medium hover:bg-jade-200 disabled:opacity-50 transition-colors"
-              >
-                添加
-              </button>
             </div>
           </div>
 
