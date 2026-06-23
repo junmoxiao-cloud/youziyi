@@ -47,6 +47,7 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+~$*.{ppt,pptx,xls,xlsx,doc,docx}
 
 # HarmonyOS / DevEco / hvigor
 .hvigor/

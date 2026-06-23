@@ -1,6 +1,7 @@
+import promptAction from '@ohos.promptAction'
 import { SectionCard } from '../../components/SectionCard'
 import { appSession } from '../../common/AppSession'
-import { TrackedMetric, UserProfileResponse, getTrackedMetricLabel, resolveCityLabel } from '../../common/ApiModels'
+import { FamilyProfileMember, TrackedMetric, UserProfileResponse, getTrackedMetricLabel, resolveCityLabel } from '../../common/ApiModels'
 import { appRepository } from '../../services/AppRepository'
 
 @Component
@@ -31,7 +32,7 @@ export struct ProfileTab {
 
         SectionCard({
           title: '当前账号',
-          description: `称呼：${this.profile?.name ?? appSession.getUserName() || '未登录'}\n身份：${this.profile?.role === 'elder' ? '长辈' : '子女'}\n城市：${resolveCityLabel(this.profile?.city, this.profile?.cityCode) || '待完善'}`,
+          description: `称呼：${(this.profile?.name ?? appSession.getUserName()) || '未登录'}\n身份：${this.profile?.role === 'elder' ? '长辈' : '子女'}\n城市：${resolveCityLabel(this.profile?.city, this.profile?.cityCode) || '待完善'}`,
           accentColor: '#91B4FF'
         })
 
@@ -51,7 +52,7 @@ export struct ProfileTab {
           })
 
           Column({ space: 10 }) {
-            ForEach(this.profile.familyInfo.members, (member) => {
+            ForEach(this.profile.familyInfo.members, (member: FamilyProfileMember) => {
               Row({ space: 12 }) {
                 Column({ space: 4 }) {
                   Text(member.name)
@@ -71,10 +72,23 @@ export struct ProfileTab {
               .padding(16)
               .backgroundColor('#FFFFFF')
               .borderRadius(18)
-            }, (member) => member.userId)
+            }, (member: FamilyProfileMember) => member.userId)
           }
           .width('100%')
         }
+
+        Button('退出登录')
+          .width('100%')
+          .height(56)
+          .fontSize(20)
+          .fontColor('#FFFFFF')
+          .backgroundColor('#E02020')
+          .margin({ top: 20 })
+          .onClick(() => {
+            appSession.clear()
+            promptAction.showToast({ message: '已退出登录' })
+            this.getUIContext().getRouter().replaceUrl({ url: 'pages/Login' })
+          })
       }
       .width('100%')
       .padding(20)

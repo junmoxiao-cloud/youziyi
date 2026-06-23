@@ -1,0 +1,91 @@
+<view class="container family-join-container">
+  <view class="family-join-header">
+    <text class="yz-title">连接家人</text>
+    <text class="yz-subtitle">输入家人分享的牵挂码，建立你们的专属羁绊</text>
+  </view>
+
+  <view wx:if="{{hasFamily}}" class="family-state yz-card">
+    <view class="state-icon">{{successMessage ? '🎉' : '🏠'}}</view>
+    <text class="state-title">{{successMessage ? '连接成功' : '已连接家庭'}}</text>
+    <text class="state-family-name">{{familyInfo.familyName}}</text>
+    <text class="state-code">牵挂码 {{createdCode || familyInfo.inviteCode}}</text>
+    <text wx:if="{{successMessage}}" class="state-message">{{successMessage}}</text>
+
+    <view class="member-section">
+      <text class="section-label">家庭成员</text>
+      <view class="member-list">
+        <view wx:for="{{members}}" wx:key="userId" class="member-item">
+          <view class="member-main">
+            <text class="member-name">{{item.name}}</text>
+            <text class="member-city">城市：{{item.cityText}}</text>
+          </view>
+          <text class="member-role-badge">{{item.roleText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <button class="yz-btn yz-btn-primary family-enter-btn" bindtap="onEnterHome">进入主页</button>
+  </view>
+
+  <block wx:else>
+    <view class="mode-switch yz-card">
+      <view
+        class="mode-btn {{mode === 'create' ? 'mode-btn-active' : ''}}"
+        data-mode="create"
+        bindtap="onModeTap"
+      >
+        我来创建
+      </view>
+      <view
+        class="mode-btn {{mode === 'join' ? 'mode-btn-active' : ''}}"
+        data-mode="join"
+        bindtap="onModeTap"
+      >
+        我有牵挂码
+      </view>
+    </view>
+
+    <view wx:if="{{mode === 'create'}}" class="create-panel yz-card">
+      <text class="panel-title">创建一个新的家庭</text>
+      <text class="panel-desc">创建后会生成牵挂码，您可以把牵挂码分享给家人，让他们加入。</text>
+
+      <view wx:if="{{createdCode}}" class="code-display">
+        <text class="code-label">牵挂码</text>
+        <text class="code-value">{{createdCode}}</text>
+      </view>
+
+      <text wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</text>
+
+      <button
+        class="yz-btn yz-btn-primary"
+        disabled="{{isLoading}}"
+        bindtap="onCreate"
+      >
+        {{isLoading ? '正在生成...' : '生成牵挂码'}}
+      </button>
+    </view>
+
+    <view wx:if="{{mode === 'join'}}" class="join-panel yz-card">
+      <text class="panel-title">加入家庭</text>
+      <input
+        class="yz-input code-input {{errorMessage ? 'code-input-error' : ''}}"
+        placeholder="输入牵挂码"
+        maxlength="8"
+        value="{{inviteCode}}"
+        bindinput="onInviteCodeInput"
+      />
+      <text wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</text>
+      <button
+        class="yz-btn yz-btn-primary"
+        disabled="{{isLoading || !inviteCode}}"
+        bindtap="onJoin"
+      >
+        {{isLoading ? '正在连接...' : '确认加入'}}
+      </button>
+    </view>
+
+    <view class="hint-card yz-card">
+      <text class="hint-text">不知道牵挂码？请让已经注册的家人在「设置」-「邀请家人」中获取</text>
+    </view>
+  </block>
+</view>

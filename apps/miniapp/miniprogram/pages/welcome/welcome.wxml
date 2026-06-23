@@ -1,0 +1,25 @@
+<view class="container welcome-container">
+  <view class="welcome-content">
+    <text class="yz-title welcome-title">游子衣</text>
+    <text class="yz-subtitle welcome-subtitle">无论走多远\n总有一根线，牵着家的方向</text>
+  </view>
+
+  <view class="welcome-actions">
+    <button
+      class="yz-btn yz-btn-primary welcome-btn"
+      bindtap="navigateToLogin"
+    >
+      开启陪伴之旅
+    </button>
+    <button
+      class="yz-btn welcome-btn welcome-btn-outline"
+      bindtap="navigateToFamilyJoin"
+    >
+      我有牵挂码，加入家人
+    </button>
+  </view>
+
+  <view class="welcome-footer">
+    《游子衣》 - 亲情的记录和见证之所
+  </view>
+</view>

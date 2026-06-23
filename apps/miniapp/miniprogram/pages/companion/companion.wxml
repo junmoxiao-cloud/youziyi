@@ -1,0 +1,169 @@
+<scroll-view class="scrollarea" scroll-y type="list">
+  <view class="container companion-container">
+    <!-- 预警提示 -->
+    <view wx:if="{{warningToast.visible}}" class="warning-toast {{warningToast.levelClass}}">
+      <text class="warning-toast-icon">{{warningToast.icon}}</text>
+      <view class="warning-toast-body">
+        <text class="warning-toast-title">{{warningToast.title}}</text>
+        <text class="warning-toast-text">{{warningToast.message}}</text>
+      </view>
+    </view>
+
+    <!-- 顶部头部 -->
+    <view class="companion-header">
+      <view class="header-main">
+        <text class="header-title">游子衣 全景陪伴</text>
+        <text class="header-date">{{currentDate}}</text>
+      </view>
+      <view class="header-actions">
+        <button class="header-btn" bindtap="onProfileTap">个人设置</button>
+        <button class="header-btn header-btn-jade" bindtap="onSwitchModeTap">切换长辈关怀视图</button>
+        <button class="header-btn header-btn-blue" bindtap="onGenerateCodeTap">{{inviteCode ? '牵挂码: ' + inviteCode : '生成亲情牵挂码'}}</button>
+      </view>
+    </view>
+
+    <!-- 操作反馈 -->
+    <view wx:if="{{actionMessage}}" class="action-message yz-card">
+      <text>{{actionMessage}}</text>
+    </view>
+
+    <!-- 亲情温度计 -->
+    <view class="yz-card thermometer-card">
+      <view class="section-header">
+        <view class="section-dot section-dot-cinnabar"></view>
+        <text class="yz-section-title">亲情温度计</text>
+      </view>
+
+      <view class="thermometer-body">
+        <view class="thermometer-circle {{thermometer.levelClass}}">
+          <view class="thermometer-ring"></view>
+          <view class="thermometer-inner">
+            <text class="thermometer-status">{{thermometer.statusText}}</text>
+          </view>
+        </view>
+
+        <view class="thermometer-info">
+          <text class="thermometer-label">距离上次互动</text>
+          <text class="thermometer-duration">{{thermometer.durationText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 同一片天空 -->
+    <view class="yz-card weather-section">
+      <view class="section-header">
+        <view class="section-dot section-dot-blue"></view>
+        <text class="yz-section-title">同一片天空</text>
+      </view>
+
+      <view class="weather-grid">
+        <view class="weather-card">
+          <text class="weather-card-label">家乡</text>
+          <text class="weather-card-city">{{elderWeatherDisplay.cityText}}</text>
+          <text class="weather-card-icon">{{elderWeatherDisplay.icon}}</text>
+          <text class="weather-card-desc">{{elderWeatherDisplay.temperatureText}}</text>
+        </view>
+
+        <view class="weather-card">
+          <text class="weather-card-label">远方</text>
+          <text class="weather-card-city">{{childWeatherDisplay.cityText}}</text>
+          <text class="weather-card-icon">{{childWeatherDisplay.icon}}</text>
+          <text class="weather-card-desc">{{childWeatherDisplay.temperatureText}}</text>
+        </view>
+      </view>
+
+      <view class="weather-hint">
+        <text>天气会按家人最新资料中的城市刷新；当资料城市与天气结果暂时不一致时，这里会保守显示为暂不可用。</text>
+      </view>
+    </view>
+
+    <!-- 今日共享状态 -->
+    <view class="yz-card shared-status-card">
+      <view class="section-header">
+        <view class="section-dot section-dot-jade"></view>
+        <text class="yz-section-title">今日共享状态</text>
+      </view>
+
+      <view class="shared-status-body">
+        <view class="shared-status-top">
+          <view>
+            <text class="shared-target-label">共享对象：{{sharedStatusDisplay.targetName}}</text>
+            <text class="shared-status-title">{{sharedStatusDisplay.statusTitle}}</text>
+          </view>
+          <text class="shared-mood-icon">{{sharedStatusDisplay.moodIcon}}</text>
+        </view>
+
+        <view class="shared-metrics">
+          <view class="metric-item">
+            <text class="metric-label">心情</text>
+            <text class="metric-value">{{sharedStatusDisplay.moodLabel}}</text>
+          </view>
+          <view class="metric-item">
+            <text class="metric-label">步数</text>
+            <text class="metric-value">{{sharedStatusDisplay.stepsText}}</text>
+          </view>
+          <view class="metric-item">
+            <text class="metric-label">心率</text>
+            <text class="metric-value">{{sharedStatusDisplay.heartRateText}}</text>
+          </view>
+        </view>
+
+        <text class="shared-update-time">最近更新：{{sharedStatusDisplay.updateTimeText}}</text>
+      </view>
+    </view>
+
+    <!-- 家庭故事接龙 -->
+    <view class="yz-card voice-section">
+      <view class="section-header">
+        <view class="section-dot section-dot-amber"></view>
+        <text class="yz-section-title">家庭故事接龙</text>
+      </view>
+
+      <view wx:if="{{voices.length === 0}}" class="voice-empty">
+        <text>还没有语音故事，点击右下角按钮录制第一条吧。</text>
+      </view>
+
+      <view wx:else class="voice-list">
+        <view wx:for="{{voices}}" wx:key="id" class="voice-item">
+          <view class="voice-main">
+            <text class="voice-role-badge">{{item.role === 'elder' ? '长辈' : '子女'}}</text>
+            <text class="voice-time">{{item.timeLabel}}</text>
+          </view>
+          <text class="voice-duration">{{item.duration}} 秒</text>
+        </view>
+      </view>
+
+      <button class="yz-btn yz-btn-primary voice-action-btn" bindtap="onNavigateToVoiceTap">去录制语音</button>
+    </view>
+
+    <!-- 对方基础资料 -->
+    <view class="yz-card profile-card">
+      <view class="section-header">
+        <view class="section-dot section-dot-jade"></view>
+        <text class="yz-section-title">{{counterpartProfileTitle}}</text>
+      </view>
+
+      <view class="profile-body">
+        <view class="profile-row">
+          <text class="profile-label">称呼与身份</text>
+          <text class="profile-value">
+            {{counterpartMember ? counterpartMember.name + ' · ' + counterpartMember.roleText : '等待家人加入'}}
+          </text>
+        </view>
+        <view class="profile-row">
+          <text class="profile-label">所在城市</text>
+          <text class="profile-value">
+            {{counterpartMember ? counterpartMember.cityText : '待连接'}}
+          </text>
+        </view>
+        <view class="profile-row">
+          <text class="profile-label">家庭状态</text>
+          <text class="profile-value">{{familyStatusText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部安全区 -->
+    <view class="yz-safe-bottom"></view>
+  </view>
+</scroll-view>

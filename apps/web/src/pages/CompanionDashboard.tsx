@@ -536,39 +536,40 @@ const CompanionDashboard: React.FC = () => {
         {/* Right Column: Health Charts & Voice */}
         <section className="lg:col-span-4 flex flex-col gap-6">
           {/* Health Chart */}
-          <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 h-1/2 flex flex-col">
+          <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/80 h-1/2 flex flex-col min-h-[320px]">
             <h2 className="text-xl font-serif font-semibold mb-4 text-ink-800 flex items-center">
               <span className="w-2 h-2 bg-jade-400 rounded-full mr-3 shadow-[0_0_8px_rgba(107,168,126,0.8)]"></span>
               {counterpartProfileLabel}
             </h2>
-            <div className="mb-4 grid grid-cols-1 gap-3">
-              <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3">
-                <p className="text-xs text-ink-500">称呼与身份</p>
-                <p className="mt-1 text-lg font-serif text-ink-900">
+            <div className="mb-1 grid grid-cols-1 gap-1 shrink-0">
+              <div className="rounded-2xl border border-white/60 bg-white/50 px-3 py-1.5">
+                <p className="text-[10px] text-ink-500">称呼与身份</p>
+                <p className="mt-0.5 text-base font-serif text-ink-900">
                   {counterpartMember ? `${counterpartMember.name} · ${counterpartMember.role === 'elder' ? '长辈' : '晚辈'}` : '等待家人加入'}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3">
-                  <p className="text-xs text-ink-500">所在城市</p>
-                  <p className="mt-1 text-base font-medium text-ink-900">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-white/60 bg-white/50 px-3 py-1.5">
+                  <p className="text-[10px] text-ink-500">所在城市</p>
+                  <p className="mt-0.5 text-sm font-medium text-ink-900">
                     {counterpartMember
                       ? resolveCityLabel(counterpartMember.city, counterpartMember.cityCode) || '待完善'
                       : '待连接'}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3">
-                  <p className="text-xs text-ink-500">家庭状态</p>
-                  <p className="mt-1 text-base font-medium text-ink-900">
+                <div className="rounded-2xl border border-white/60 bg-white/50 px-3 py-1.5">
+                  <p className="text-[10px] text-ink-500">家庭状态</p>
+                  <p className="mt-0.5 text-sm font-medium text-ink-900">
                     {familyMembers.length > 1 ? `已连接 ${familyMembers.length} 人` : '等待家人加入'}
                   </p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/60 bg-white/50 px-4 py-3 text-sm text-ink-600">
-                <p className="font-medium text-ink-800">今日状态说明</p>
-                <p className="mt-2">
+              <div className="relative group rounded-2xl border border-white/60 bg-white/50 px-3 py-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium text-ink-800">今日状态说明</span>
+                <span className="w-4 h-4 rounded-full bg-ink-200 text-white text-[10px] flex items-center justify-center cursor-help select-none">?</span>
+                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-64 p-3 rounded-xl bg-white/90 backdrop-blur border border-white/60 shadow-lg text-xs text-ink-600 leading-snug">
                   当前页展示的是家庭共享对象今天最新的报平安内容，打卡后会自动刷新。
-                </p>
+                </div>
               </div>
             </div>
             <div className="flex-1 w-full bg-white/40 rounded-2xl border border-white/50 p-2">

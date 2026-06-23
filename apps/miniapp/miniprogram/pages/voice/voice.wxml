@@ -1,11 +1,15 @@
 <view class="container">
+  <view class="back-section">
+    <view class="back-btn" bindtap="goBack">返回</view>
+  </view>
+
   <view class="header">
     <text class="title">家庭故事语音</text>
     <text class="subtitle">按住按钮说话，松开发送</text>
   </view>
 
   <view class="record-section">
-    <button 
+    <button
       class="record-btn {{isRecording ? 'recording' : ''}}"
       bindtouchstart="startRecord"
       bindtouchend="stopRecord"

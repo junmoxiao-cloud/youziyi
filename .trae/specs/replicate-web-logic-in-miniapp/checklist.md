@@ -1,0 +1,23 @@
+# Checklist
+
+- [x] `app.ts` 中定义了完整的 `globalData` 并能在 `onLaunch` 时从 Storage 恢复登录态
+- [x] `utils/routing.ts` 实现了与 Web 端一致的 `hasCompletedOnboarding`, `hasJoinedFamily`, `resolveAuthenticatedLandingPath`
+- [x] `app.json` 已注册所有新页面，且 `pages/index/index` 作为 Care Dashboard 入口存在
+- [x] 欢迎页 `pages/welcome/welcome` 实现了“开启陪伴之旅”与“我有牵挂码”入口
+- [x] 登录页 `pages/login/login` 调用 `POST /api/auth/login` 并能根据路由守卫完成首跳
+- [x] 注册页 `pages/register/register` 调用 `POST /api/auth/register` 并支持 `elder`/`child` 角色选择
+- [x] Onboarding 页 `pages/onboarding/onboarding` 能采集城市与指标并调用 `POST /api/user/profile/update`
+- [x] 家庭连接页 `pages/family-join/family-join` 支持创建家庭与输入牵挂码加入，成功后刷新 `userProfile`
+- [x] 角色选择页 `pages/role-select/role-select` 能按选择跳转 Care 或 Companion 面板
+- [x] 长辈关怀面板 `pages/index/index` 能拉取 `checkin-status` 与 `daily` 并动态渲染打卡表单
+- [x] 打卡提交遵循窗口策略，非窗口内/已打卡时禁用提交并展示正确提示
+- [x] 打卡成功后刷新相关接口并给出震动/Toast 多模态反馈
+- [x] 子女陪伴面板 `pages/companion/companion` 能展示亲情温度计、双方天气、今日共享状态、语音列表
+- [x] 天气展示基于家庭成员真实 `cityCode`，未完善时保守显示“暂不可用”
+- [x] 个人设置页 `pages/profile/profile` 能修改城市与指标并保存
+- [x] 设置页提供退出登录功能，能清除全局状态与 Storage
+- [x] 语音页 `pages/voice/voice` 移除了硬编码 `userId`，使用真实登录用户上传
+- [x] 语音上传成功后通过返回上一页触发 `onShow` 刷新语音列表并给出反馈
+- [x] `utils/request.ts` 对新增接口支持良好，POST 请求在弱网时可进入离线队列并重发
+- [x] 全局无硬编码 `mock-user-123`、`story-456`、旧端口等遗留
+- [x] 所有页面核心字号 ≥36rpx，关键信息 ≥48rpx，按钮热区 ≥120rpx

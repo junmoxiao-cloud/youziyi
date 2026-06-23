@@ -6,7 +6,7 @@ import {
 
 export interface ApiResponse<T> {
   code: number
-  data: T
+  data: T | null
   message: string
 }
 
@@ -86,7 +86,6 @@ export interface CheckInMetricsData {
   bloodPressure?: string
   bloodSugar?: number
   sleep?: string
-  [key: string]: string | number | boolean | undefined
 }
 
 export interface HomeCheckInState {
@@ -370,6 +369,11 @@ export interface CheckInFormInitialValues {
   heartRate: number | null
 }
 
+export interface TodayCheckInForm {
+  editableMetrics: TrackedMetric[]
+  initialValues: CheckInFormInitialValues
+}
+
 export interface TodayCheckInStatusResponse {
   userId: string
   timezone: string
@@ -381,10 +385,7 @@ export interface TodayCheckInStatusResponse {
   summary: DailyHealthSummary
   today: DailyHealthAggregateDay
   latestRecord: CheckInRecordSummary | null
-  form: {
-    editableMetrics: TrackedMetric[]
-    initialValues: CheckInFormInitialValues
-  }
+  form: TodayCheckInForm
 }
 
 export function resolveCityLabel(city?: string | null, cityCode?: string | null): string {
@@ -408,4 +409,25 @@ export function getTrackedMetricLabel(metric: TrackedMetric): string {
     default:
       return metric
   }
+}
+
+export interface VoiceListItem {
+  id: string
+  senderId: string
+  senderName: string
+  senderRole: UserRole
+  audioUrl: string
+  duration: number
+  createdAt: number
+}
+
+export interface VoiceListResponse {
+  records: VoiceListItem[]
+  total: number
+}
+
+export interface VoiceUploadResult {
+  recordId: string
+  audioUrl: string
+  duration: number
 }

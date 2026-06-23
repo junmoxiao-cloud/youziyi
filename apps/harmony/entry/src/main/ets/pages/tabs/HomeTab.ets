@@ -54,15 +54,19 @@ export struct HomeTab {
     }
 
     appRepository.getUserProfile(userId).then((response) => {
-      this.profile = response.data
-      appSession.setProfile(response.data)
+      if (response.data) {
+        this.profile = response.data
+        appSession.setProfile(response.data)
+      }
       return appRepository.getTodayCheckInStatus(userId)
     }).then((response) => {
-      this.todayStatus = response.data
-      this.selectedMood = response.data.form.initialValues.mood ?? ''
-      this.stepsInput = response.data.form.initialValues.steps ? String(response.data.form.initialValues.steps) : ''
-      this.heartRateInput = response.data.form.initialValues.heartRate ? String(response.data.form.initialValues.heartRate) : ''
-      this.submitMessage = response.data.window.promptMessage
+      if (response.data) {
+        this.todayStatus = response.data
+        this.selectedMood = response.data.form.initialValues.mood ?? ''
+        this.stepsInput = response.data.form.initialValues.steps ? String(response.data.form.initialValues.steps) : ''
+        this.heartRateInput = response.data.form.initialValues.heartRate ? String(response.data.form.initialValues.heartRate) : ''
+        this.submitMessage = response.data.window.promptMessage
+      }
     }).catch((error: Error) => {
       this.submitMessage = '打卡状态加载失败，请稍后重试。'
       promptAction.showToast({ message: error.message })
@@ -201,8 +205,10 @@ export struct HomeTab {
 
     appRepository.submitCheckIn(payload).then((response) => {
       this.isSubmitting = false
-      this.lastRecordId = response.data.recordId
-      this.submitMessage = `${response.message}，recordId：${response.data.recordId}`
+      if (response.data) {
+        this.lastRecordId = response.data.recordId
+        this.submitMessage = `${response.message}，recordId：${response.data.recordId}`
+      }
       promptAction.showToast({ message: response.message })
       this.loadData()
     }).catch((error: Error) => {

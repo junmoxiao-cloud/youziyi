@@ -1,0 +1,52 @@
+<view class="container onboarding-container">
+  <view class="onboarding-header">
+    <text class="yz-title onboarding-title">欢迎回家</text>
+    <text class="yz-subtitle onboarding-subtitle">我是您的贴心管家。\n告诉我您常住的城市和关注的健康指标，我会为您量身定制每日关怀。</text>
+  </view>
+
+  <view class="yz-card onboarding-section">
+    <text class="yz-section-title onboarding-section-title">您目前常住在哪个城市？</text>
+    <view class="city-grid">
+      <view
+        wx:for="{{cityOptions}}"
+        wx:key="code"
+        class="city-item {{cityCode === item.code && !customCity ? 'city-item-active' : ''}}"
+        data-code="{{item.code}}"
+        bindtap="onCityTap"
+      >
+        <text class="city-name">{{item.name}}</text>
+      </view>
+    </view>
+    <input
+      class="yz-input onboarding-input yz-mt-24"
+      placeholder="或输入其他城市名称..."
+      value="{{customCity}}"
+      bindinput="onCustomCityInput"
+    />
+  </view>
+
+  <view class="yz-card onboarding-section">
+    <text class="yz-section-title onboarding-section-title">每天想记录哪些健康指标？</text>
+    <text class="onboarding-hint">心情为必选项，其余可根据需要选择</text>
+    <view class="metric-grid">
+      <view
+        wx:for="{{metricOptions}}"
+        wx:key="id"
+        class="metric-item {{trackedMetrics.indexOf(item.id) !== -1 ? 'metric-item-active' : ''}} {{item.id === 'mood' ? 'metric-item-required' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onMetricTap"
+      >
+        <text class="metric-icon">{{item.icon}}</text>
+        <text class="metric-label">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <button
+    class="yz-btn yz-btn-primary onboarding-submit {{canSubmit && !isSubmitting ? '' : 'onboarding-submit-disabled'}}"
+    disabled="{{!canSubmit || isSubmitting}}"
+    bindtap="onSubmit"
+  >
+    {{isSubmitting ? '保存中...' : '开启温暖陪伴'}}
+  </button>
+</view>

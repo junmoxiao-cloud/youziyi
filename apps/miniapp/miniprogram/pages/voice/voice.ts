@@ -5,10 +5,26 @@ const recorderManager = wx.getRecorderManager();
 
 Page({
   data: {
-    isRecording: false
+    isRecording: false,
+    userId: '',
+    storyId: 'default-story',
   },
 
   onLoad() {
+    const app = getApp<IAppOption>();
+    const userId =
+      app.globalData.userId !== null && app.globalData.userId !== undefined
+        ? app.globalData.userId
+        : '';
+    const storyId =
+      app.globalData.userProfile &&
+      app.globalData.userProfile.familyId !== null &&
+      app.globalData.userProfile.familyId !== undefined
+        ? app.globalData.userProfile.familyId
+        : 'default-story';
+
+    this.setData({ userId, storyId });
+
     recorderManager.onStart(() => {
       console.log('recorder start');
     });
@@ -21,15 +37,20 @@ Page({
   },
 
   startRecord() {
+    if (!this.data.userId) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+
     this.setData({ isRecording: true });
     wx.vibrateShort({ type: 'medium' });
-    
+
     const options: WechatMiniprogram.RecorderManagerStartOption = {
       duration: 60000,
       sampleRate: 16000,
       numberOfChannels: 1,
       encodeBitRate: 48000,
-      format: 'aac'
+      format: 'aac',
     };
     recorderManager.start(options);
   },
@@ -46,12 +67,12 @@ Page({
     wx.showLoading({ title: '发送中...' });
 
     wx.uploadFile({
-      url: `${config.baseURL}/api/voice/upload`, // 预留的上传接口
-      filePath: filePath,
+      url: `${config.baseURL}/api/voice/upload`,
+      filePath,
       name: 'file',
       formData: {
-        userId: 'mock-user-123',
-        storyId: 'story-456'
+        userId: this.data.userId,
+        storyId: this.data.storyId,
       },
       success: (res) => {
         wx.hideLoading();
@@ -59,6 +80,11 @@ Page({
           const data = JSON.parse(res.data);
           if (data.code === 0) {
             wx.showToast({ title: '发送成功', icon: 'success' });
+            wx.vibrateShort({ type: 'heavy' });
+            // 返回上一页，由 companion 等列表页在 onShow 中自动刷新语音列表
+            setTimeout(() => {
+              wx.navigateBack({ delta: 1, fail: () => {} });
+            }, 800);
           } else {
             wx.showToast({ title: data.message || '发送失败', icon: 'none' });
           }
@@ -70,7 +96,11 @@ Page({
         wx.hideLoading();
         wx.showToast({ title: '网络错误', icon: 'error' });
         console.error(err);
-      }
+      },
     });
-  }
+  },
+
+  goBack() {
+    wx.navigateBack({ delta: 1 });
+  },
 });

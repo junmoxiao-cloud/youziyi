@@ -1,4 +1,5 @@
 {
-  "usingComponents": {
-  }
+  "navigationBarTitleText": "长辈极简关怀",
+  "enablePullDownRefresh": true,
+  "usingComponents": {}
 }

@@ -144,7 +144,11 @@ struct Login {
             if (this.isRegisterMode) {
               appRepository.register(normalizedName, normalizedPassword, this.selectedRole).then((response) => {
                 promptAction.showToast({ message: response.message })
-                this.finishAuth(response.data.userId, response.data.name, response.data.role)
+                if (response.data) {
+                  this.finishAuth(response.data.userId, response.data.name, response.data.role)
+                } else {
+                  this.isSubmitting = false
+                }
               }).catch((error: Error) => {
                 this.isSubmitting = false
                 promptAction.showToast({ message: error.message })
@@ -154,7 +158,11 @@ struct Login {
 
             appRepository.login(normalizedName, normalizedPassword).then((response) => {
               promptAction.showToast({ message: response.message })
-              this.finishAuth(response.data.userId, response.data.name, response.data.role)
+              if (response.data) {
+                this.finishAuth(response.data.userId, response.data.name, response.data.role)
+              } else {
+                this.isSubmitting = false
+              }
             }).catch((error: Error) => {
               this.isSubmitting = false
               promptAction.showToast({ message: error.message })

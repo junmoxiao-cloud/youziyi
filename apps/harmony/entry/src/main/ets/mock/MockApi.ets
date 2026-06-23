@@ -7,19 +7,25 @@ import {
   FamilyJoinResult,
   FamilyProfileMember,
   METRIC_OPTIONS,
+  MetricOption,
   CheckInPayload,
   CheckInResult,
   CheckInRecordSummary,
   CheckInPeriod,
   CheckInPromptState,
+  CheckInFormInitialValues,
   DailyHealthAggregateDay,
   DailyHealthSummary,
   TodayCheckInStatusResponse,
+  TodayCheckInWindowPolicy,
   TrackedMetric,
   UserProfileResponse,
   UserProfileUpdatePayload,
   UserRole,
   VerificationResult,
+  VoiceListItem,
+  VoiceListResponse,
+  VoiceUploadResult,
   WarningStatusData,
   WeatherData
 } from '../common/ApiModels';
@@ -34,14 +40,16 @@ function ok<T>(data: T, message: string): Promise<ApiResponse<T>> {
   return Promise.resolve(response)
 }
 
+interface MockUser {
+  userId: string
+  name: string
+  password: string
+  role: UserRole
+  cityCode?: string
+}
+
 export class MockApi {
-  private static users: Array<{
-    userId: string
-    name: string
-    password: string
-    role: UserRole
-    cityCode?: string
-  }> = [
+  private static users: Array<MockUser> = [
     {
       userId: 'mock-elder-001',
       name: '张阿姨',
@@ -51,8 +59,8 @@ export class MockApi {
     }
   ]
 
-  private static profiles: Record<string, UserProfileResponse> = {
-    'mock-elder-001': {
+  private static profiles: Map<string, UserProfileResponse> = new Map<string, UserProfileResponse>([
+    ['mock-elder-001', {
       userId: 'mock-elder-001',
       name: '张阿姨',
       role: 'elder',
@@ -61,11 +69,11 @@ export class MockApi {
       trackedMetrics: ['mood', 'steps', 'heartRate'],
       familyId: null,
       familyInfo: null
-    }
-  }
+    }]
+  ])
 
-  private static checkInRecords: Record<string, CheckInPayload[]> = {}
-  private static families: Record<string, FamilyInfo> = {}
+  private static checkInRecords: Map<string, CheckInPayload[]> = new Map<string, CheckInPayload[]>()
+  private static families: Map<string, FamilyInfo> = new Map<string, FamilyInfo>()
 
   private static formatDateKey(timestamp: number): string {
     const date = new Date(timestamp)
@@ -126,18 +134,30 @@ export class MockApi {
   }
 
   private static buildMember(userId: string): FamilyProfileMember {
-    const profile = MockApi.profiles[userId]
-    return {
+    const profile = MockApi.profiles.get(userId)
+    if (!profile) {
+      const fallbackMember: FamilyProfileMember = {
+        userId,
+        name: userId,
+        role: 'elder',
+        city: null,
+        cityCode: null
+      }
+      return fallbackMember
+    }
+
+    const member: FamilyProfileMember = {
       userId: profile.userId,
       name: profile.name,
       role: profile.role,
       city: profile.city ?? null,
       cityCode: profile.cityCode ?? null
     }
+    return member
   }
 
   private static attachFamilyToProfile(userId: string, familyInfo: FamilyInfo | null): void {
-    const profile = MockApi.profiles[userId]
+    const profile = MockApi.profiles.get(userId)
     if (!profile) {
       return
     }
@@ -146,15 +166,15 @@ export class MockApi {
   }
 
   private static buildTodayStatus(userId: string): TodayCheckInStatusResponse {
-    const profile = MockApi.profiles[userId]
-    const records = MockApi.checkInRecords[userId] ?? []
+    const profile = MockApi.profiles.get(userId)
+    const records = MockApi.checkInRecords.get(userId) ?? []
     const todayDate = MockApi.formatDateKey(Date.now())
     const todayRecords = records
       .filter((record) => MockApi.formatDateKey(record.timestamp) === todayDate)
       .sort((left, right) => right.timestamp - left.timestamp)
     const latestPayload = todayRecords[0] ?? null
-    const trackedMetrics = profile?.trackedMetrics?.length ? profile.trackedMetrics : METRIC_OPTIONS.filter((item) => item.defaultSelected).map((item) => item.id)
-    const period = MockApi.resolvePeriod(Date.now())
+    const trackedMetrics: TrackedMetric[] = profile?.trackedMetrics?.length ? profile.trackedMetrics : METRIC_OPTIONS.filter((item: MetricOption): boolean => item.defaultSelected).map((item: MetricOption): TrackedMetric => item.id)
+    const period: CheckInPeriod = MockApi.resolvePeriod(Date.now())
     const promptState = MockApi.resolvePromptState(todayRecords.length > 0, period)
     const opensAt = new Date(todayDate + 'T05:00:00').getTime()
     const closesAt = new Date(todayDate + 'T23:00:00').getTime()
@@ -166,7 +186,7 @@ export class MockApi {
       heartRate: latestPayload.heartRate ?? null,
       timestamp: latestPayload.timestamp,
       businessDate: todayDate,
-      period
+      period: period as CheckInPeriod
     } : null
 
     const summary: DailyHealthSummary = {
@@ -186,35 +206,41 @@ export class MockApi {
       latestRecord
     }
 
-    return {
+    const windowPolicy: TodayCheckInWindowPolicy = {
+      timezone: 'Asia/Shanghai',
+      businessDate: todayDate,
+      currentPeriod: period,
+      opensAt,
+      closesAt,
+      isWithinCheckInWindow: period !== 'closed',
+      promptState,
+      promptMessage: MockApi.resolvePromptMessage(promptState)
+    }
+
+    const initialValues: CheckInFormInitialValues = {
+      mood: latestPayload?.mood ?? null,
+      steps: latestPayload?.steps ?? null,
+      heartRate: latestPayload?.heartRate ?? null
+    }
+
+    const response: TodayCheckInStatusResponse = {
       userId,
       timezone: 'Asia/Shanghai',
       businessDate: todayDate,
       hasCheckedInToday: today.hasCheckedIn,
       lastCheckInAt: latestPayload?.timestamp ?? null,
       trackedMetrics,
-      window: {
-        timezone: 'Asia/Shanghai',
-        businessDate: todayDate,
-        currentPeriod: period,
-        opensAt,
-        closesAt,
-        isWithinCheckInWindow: period !== 'closed',
-        promptState,
-        promptMessage: MockApi.resolvePromptMessage(promptState)
-      },
+      window: windowPolicy,
       summary,
       today,
       latestRecord,
       form: {
         editableMetrics: trackedMetrics,
-        initialValues: {
-          mood: latestPayload?.mood ?? null,
-          steps: latestPayload?.steps ?? null,
-          heartRate: latestPayload?.heartRate ?? null
-        }
+        initialValues: initialValues
       }
     }
+
+    return response
   }
 
   static requestVerificationCode(phone: string): Promise<ApiResponse<VerificationResult>> {
@@ -235,11 +261,12 @@ export class MockApi {
     const normalizedName = name.trim()
     const existingUser = MockApi.users.find((item) => item.name === normalizedName)
     if (existingUser) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<AuthResult> = {
         code: 400,
-        data: null as unknown as AuthResult,
+        data: null,
         message: '用户名已存在'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
     const userId = `mock-user-${Date.now()}`
@@ -250,7 +277,7 @@ export class MockApi {
       role,
       cityCode
     })
-    MockApi.profiles[userId] = {
+    MockApi.profiles.set(userId, {
       userId,
       name: normalizedName,
       role,
@@ -259,55 +286,60 @@ export class MockApi {
       trackedMetrics: [],
       familyId: null,
       familyInfo: null
-    }
+    })
 
-    return ok({
+    const authResult: AuthResult = {
       userId,
       name: normalizedName,
       role,
       cityCode
-    }, '注册成功')
+    }
+    return ok(authResult, '注册成功')
   }
 
   static login(name: string, password: string): Promise<ApiResponse<AuthResult>> {
     const normalizedName = name.trim()
     const user = MockApi.users.find((item) => item.name === normalizedName && item.password === password)
     if (!user) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<AuthResult> = {
         code: 401,
-        data: null as unknown as AuthResult,
+        data: null,
         message: '用户名或密码错误'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
-    return ok({
+    const authResult: AuthResult = {
       userId: user.userId,
       name: user.name,
       role: user.role,
       cityCode: user.cityCode
-    }, '登录成功')
+    }
+    return ok(authResult, '登录成功')
   }
 
   static getUserProfile(userId: string): Promise<ApiResponse<UserProfileResponse>> {
-    const profile = MockApi.profiles[userId]
+    const profile = MockApi.profiles.get(userId)
     if (!profile) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<UserProfileResponse> = {
         code: 404,
-        data: null as unknown as UserProfileResponse,
+        data: null,
         message: '用户不存在'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
     return ok(profile, 'success')
   }
 
   static updateUserProfile(payload: UserProfileUpdatePayload): Promise<ApiResponse<UserProfileResponse>> {
-    const profile = MockApi.profiles[payload.userId]
+    const profile = MockApi.profiles.get(payload.userId)
     if (!profile) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<UserProfileResponse> = {
         code: 404,
-        data: null as unknown as UserProfileResponse,
+        data: null,
         message: '用户不存在'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
     profile.cityCode = payload.cityCode ?? profile.cityCode
@@ -317,21 +349,23 @@ export class MockApi {
   }
 
   static createFamily(userId: string, familyName?: string): Promise<ApiResponse<FamilyCreateResult>> {
-    const profile = MockApi.profiles[userId]
+    const profile = MockApi.profiles.get(userId)
     if (!profile) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<FamilyCreateResult> = {
         code: 404,
-        data: null as unknown as FamilyCreateResult,
+        data: null,
         message: '用户不存在'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
     if (profile.familyInfo) {
-      return ok({
+      const result: FamilyCreateResult = {
         familyId: profile.familyInfo.familyId,
         inviteCode: profile.familyInfo.inviteCode,
         name: profile.familyInfo.familyName
-      }, '用户已在家庭中，返回现有牵挂码')
+      }
+      return ok(result, '用户已在家庭中，返回现有牵挂码')
     }
 
     const familyId = `mock-family-${Date.now()}`
@@ -342,52 +376,67 @@ export class MockApi {
       inviteCode,
       members: [MockApi.buildMember(userId)]
     }
-    MockApi.families[familyId] = familyInfo
+    MockApi.families.set(familyId, familyInfo)
     MockApi.attachFamilyToProfile(userId, familyInfo)
 
-    return ok({
+    const createResult: FamilyCreateResult = {
       familyId,
       inviteCode,
       name: familyInfo.familyName
-    }, '家庭创建成功，牵挂码已生成')
+    }
+    return ok(createResult, '家庭创建成功，牵挂码已生成')
   }
 
   static joinFamily(userId: string, inviteCode: string): Promise<ApiResponse<FamilyJoinResult>> {
-    const profile = MockApi.profiles[userId]
+    const profile = MockApi.profiles.get(userId)
     if (!profile) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<FamilyJoinResult> = {
         code: 404,
-        data: null as unknown as FamilyJoinResult,
+        data: null,
         message: '用户不存在'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
-    const targetFamily = Object.values(MockApi.families).find((item) => item.inviteCode === inviteCode.toUpperCase())
+    let targetFamily: FamilyInfo | undefined = undefined
+    const familyList: FamilyInfo[] = []
+    MockApi.families.forEach((value: FamilyInfo) => {
+      familyList.push(value)
+    })
+    for (let i = 0; i < familyList.length; i++) {
+      const family = familyList[i]
+      if (family.inviteCode === inviteCode.toUpperCase()) {
+        targetFamily = family
+        break
+      }
+    }
     if (!targetFamily) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<FamilyJoinResult> = {
         code: 404,
-        data: null as unknown as FamilyJoinResult,
+        data: null,
         message: '牵挂码无效'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
     if (!targetFamily.members.some((member) => member.userId === userId)) {
-      targetFamily.members = [...targetFamily.members, MockApi.buildMember(userId)]
+      targetFamily.members = targetFamily.members.concat(MockApi.buildMember(userId))
     }
 
     for (let index = 0; index < targetFamily.members.length; index += 1) {
       MockApi.attachFamilyToProfile(targetFamily.members[index].userId, targetFamily)
     }
 
-    return ok({
+    const joinResult: FamilyJoinResult = {
       familyId: targetFamily.familyId,
       name: targetFamily.familyName
-    }, '成功加入家庭')
+    }
+    return ok(joinResult, '成功加入家庭')
   }
 
   static submitCheckIn(payload: CheckInPayload): Promise<ApiResponse<CheckInResult>> {
-    const existingRecords = MockApi.checkInRecords[payload.userId] ?? []
-    MockApi.checkInRecords[payload.userId] = [payload, ...existingRecords]
+    const existingRecords = MockApi.checkInRecords.get(payload.userId) ?? []
+    MockApi.checkInRecords.set(payload.userId, [payload].concat(existingRecords))
     const result: CheckInResult = {
       recordId: `mock-${payload.userId}-${payload.timestamp}`,
       createdAt: payload.timestamp
@@ -397,13 +446,14 @@ export class MockApi {
   }
 
   static getTodayCheckInStatus(userId: string): Promise<ApiResponse<TodayCheckInStatusResponse>> {
-    const profile = MockApi.profiles[userId]
+    const profile = MockApi.profiles.get(userId)
     if (!profile) {
-      return Promise.resolve({
+      const errResponse: ApiResponse<TodayCheckInStatusResponse> = {
         code: 404,
-        data: null as unknown as TodayCheckInStatusResponse,
+        data: null,
         message: '用户不存在'
-      })
+      }
+      return Promise.resolve(errResponse)
     }
 
     return ok(MockApi.buildTodayStatus(userId), 'success')
@@ -428,6 +478,43 @@ export class MockApi {
     }
 
     return ok(result, '天气数据已加载');
+  }
+
+  static getVoiceList(userId: string): Promise<ApiResponse<VoiceListResponse>> {
+    const now = Date.now()
+    const records: VoiceListItem[] = [
+      {
+        id: 'mock-voice-001',
+        senderId: 'mock-elder-001',
+        senderName: '张阿姨',
+        senderRole: 'elder',
+        audioUrl: 'https://api.youziyi.com/mock/audio/001.mp3',
+        duration: 12,
+        createdAt: now - 3600_000
+      },
+      {
+        id: 'mock-voice-002',
+        senderId: 'mock-child-001',
+        senderName: '小李',
+        senderRole: 'child',
+        audioUrl: 'https://api.youziyi.com/mock/audio/002.mp3',
+        duration: 8,
+        createdAt: now - 7200_000
+      }
+    ]
+
+    const voiceListResult: VoiceListResponse = { records, total: records.length }
+    return ok(voiceListResult, `${userId} 的语音列表已加载`)
+  }
+
+  static uploadVoice(userId: string, filePath: string): Promise<ApiResponse<VoiceUploadResult>> {
+    const result: VoiceUploadResult = {
+      recordId: `mock-voice-${Date.now()}`,
+      audioUrl: filePath,
+      duration: 5
+    }
+
+    return ok(result, '语音上传成功')
   }
 
   static saveCareProfile(profile: CareProfileDraft): Promise<ApiResponse<CareProfileDraft>> {

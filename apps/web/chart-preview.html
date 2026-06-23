@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chart Preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #f0ece4 0%, #e8e0d4 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      width: 420px;
+      height: 90vh;
+      background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 100%);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 32px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .profile-label {
+      font-size: 1.125rem;
+      color: #2B2D2F;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+    }
+    .profile-label .dot {
+      width: 8px;
+      height: 8px;
+      background: #96C7A7;
+      border-radius: 50%;
+      margin-right: 10px;
+      box-shadow: 0 0 8px rgba(107,168,126,0.8);
+    }
+    .info-cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .card {
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.6);
+      border-radius: 16px;
+      padding: 8px 12px;
+    }
+    .card-label {
+      font-size: 12px;
+      color: #8E9195;
+    }
+    .card-value {
+      font-size: 18px;
+      color: #2B2D2F;
+      margin-top: 2px;
+    }
+    .card-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .card-small .card-value {
+      font-size: 16px;
+      margin-top: 2px;
+    }
+    .desc-text {
+      font-size: 14px;
+      color: #6B6F73;
+      line-height: 1.5;
+    }
+    .desc-title {
+      font-weight: 600;
+      color: #2B2D2F;
+    }
+    .chart-container {
+      flex: 1;
+      width: 100%;
+      background: rgba(255,255,255,0.4);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 16px;
+      padding: 8px;
+      min-height: 0;
+    }
+    #chart {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="profile-label">
+      <span class="dot"></span>
+      父亲的陪伴档案
+    </div>
+    <div class="info-cards">
+      <div class="card">
+        <div class="card-label">称呼与身份</div>
+        <div class="card-value">爸爸 · 长辈</div>
+      </div>
+      <div class="card-row">
+        <div class="card card-small">
+          <div class="card-label">所在城市</div>
+          <div class="card-value">杭州</div>
+        </div>
+        <div class="card card-small">
+          <div class="card-label">家庭状态</div>
+          <div class="card-value">已连接 2 人</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="desc-text">
+          <span class="desc-title">今日状态说明</span><br>
+          当前页展示的是家庭共享对象今天最新的报平安内容，打卡后会自动刷新。
+        </div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <div id="chart"></div>
+    </div>
+  </div>
+
+  <script>
+    const chart = echarts.init(document.getElementById('chart'));
+    const option = {
+      tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.9)', borderColor: '#E6DFD3', textStyle: { color: '#2B2D2F' } },
+      legend: { data: ['步数', '心率'], textStyle: { color: '#4A4D50' }, top: 0 },
+      grid: { left: '2%', right: '2%', bottom: '5%', top: '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+        axisLabel: { color: '#8E9195' },
+        axisLine: { lineStyle: { color: '#D0D2D5' } },
+        axisTick: { show: false }
+      },
+      yAxis: [
+        { type: 'value', name: '', axisLabel: { show: false }, splitLine: { lineStyle: { color: '#F0EBE1', type: 'dashed' } } },
+        { type: 'value', name: '', axisLabel: { show: false }, splitLine: { show: false } }
+      ],
+      series: [
+        { name: '步数', type: 'bar', data: [3200, 4500, 3800, 5200, 4100, 6000, 3500], barWidth: '40%', itemStyle: { color: '#96C7A7', borderRadius: [6, 6, 0, 0] } },
+        { name: '心率', type: 'line', data: [72, 75, 70, 78, 73, 76, 71], yAxisIndex: 1, itemStyle: { color: '#D87C6B' }, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 4 }
+      ]
+    };
+    chart.setOption(option);
+    window.addEventListener('resize', () => chart.resize());
+  </script>
+</body>
+</html>

@@ -19,9 +19,11 @@ struct FamilyJoin {
     }
 
     appRepository.getUserProfile(userId).then((response) => {
-      appSession.setProfile(response.data)
-      if (response.data.familyInfo) {
-        this.familySummary = `已连接 ${response.data.familyInfo.familyName}`
+      if (response.data) {
+        appSession.setProfile(response.data)
+        if (response.data.familyInfo) {
+          this.familySummary = `已连接 ${response.data.familyInfo.familyName}`
+        }
       }
     })
   }
@@ -61,8 +63,6 @@ struct FamilyJoin {
   }
 
   build() {
-    const familyInfo = this.getConnectedFamily()
-
     Scroll() {
       Column({ space: 18 }) {
         Text('连接家庭')
@@ -78,21 +78,21 @@ struct FamilyJoin {
           .fontColor('#5B6477')
           .width('100%')
 
-        if (familyInfo) {
+        if (this.getConnectedFamily()) {
           Column({ space: 12 }) {
-            Text(familyInfo.familyName)
+            Text(this.getConnectedFamily()!.familyName)
               .fontSize(24)
               .fontWeight(FontWeight.Bold)
               .width('100%')
 
-            Text(`牵挂码：${familyInfo.inviteCode}`)
+            Text(`牵挂码：${this.getConnectedFamily()!.inviteCode}`)
               .fontSize(18)
               .fontColor('#20315F')
               .width('100%')
 
-            ForEach(familyInfo.members, (member) => {
+            ForEach(this.getConnectedFamily()!.members, (member: FamilyProfileMember) => {
               this.buildMemberItem(member)
-            }, (member) => member.userId)
+            }, (member: FamilyProfileMember): string => member.userId)
 
             Button('进入主页')
               .width('100%')
@@ -164,10 +164,14 @@ struct FamilyJoin {
 
                     this.isSubmitting = true
                     appRepository.createFamily(userId, this.familyName.trim()).then((response) => {
-                      this.familySummary = `${response.message}，牵挂码 ${response.data.inviteCode}`
+                      if (response.data) {
+                        this.familySummary = `${response.message}，牵挂码 ${response.data.inviteCode}`
+                      }
                       return appRepository.getUserProfile(userId)
                     }).then((profileResponse) => {
-                      appSession.setProfile(profileResponse.data)
+                      if (profileResponse.data) {
+                        appSession.setProfile(profileResponse.data)
+                      }
                       promptAction.showToast({ message: '家庭信息已刷新' })
                     }).catch((error: Error) => {
                       promptAction.showToast({ message: error.message })

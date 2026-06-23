@@ -16,20 +16,20 @@ export const SHARED_CITY_OPTIONS: SharedCityOption[] = [
   { code: 'CHENGDU', name: '成都' }
 ]
 
-export const SHARED_CITY_LABELS: Record<string, string> = {
-  SHANGHAI: '上海',
-  BEIJING: '北京',
-  GUANGZHOU: '广州',
-  SHENZHEN: '深圳',
-  HANGZHOU: '杭州',
-  CHENGDU: '成都'
-}
+export const SHARED_CITY_LABELS: Map<string, string> = new Map([
+  ['SHANGHAI', '上海'],
+  ['BEIJING', '北京'],
+  ['GUANGZHOU', '广州'],
+  ['SHENZHEN', '深圳'],
+  ['HANGZHOU', '杭州'],
+  ['CHENGDU', '成都']
+])
 
 export function resolveSharedCityLabel(cityName?: string | null, cityCode?: string | null): string {
   if (typeof cityCode === 'string' && cityCode.trim().length > 0) {
     const normalizedCode = cityCode.trim().toUpperCase()
-    if (SHARED_CITY_LABELS[normalizedCode]) {
-      return SHARED_CITY_LABELS[normalizedCode]
+    if (SHARED_CITY_LABELS.get(normalizedCode)) {
+      return SHARED_CITY_LABELS.get(normalizedCode)!
     }
     return normalizedCode
   }

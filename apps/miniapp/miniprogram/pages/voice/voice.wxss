@@ -60,3 +60,21 @@ page {
   font-size: 56rpx;
   font-weight: bold;
 }
+
+.back-section {
+  width: 100%;
+  margin-bottom: 20rpx;
+}
+
+.back-btn {
+  width: 180rpx;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  font-size: 40rpx;
+  color: #333333;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+}

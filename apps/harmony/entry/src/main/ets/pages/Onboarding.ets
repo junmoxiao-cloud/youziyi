@@ -3,9 +3,11 @@ import {
   CITY_OPTIONS,
   DEFAULT_TRACKED_METRICS,
   METRIC_OPTIONS,
+  MetricOption,
   TrackedMetric,
   getTrackedMetricLabel
 } from '../common/ApiModels'
+import { SharedCityOption } from '../common/synced/SharedCityCatalog'
 import { appSession } from '../common/AppSession'
 import { appRepository } from '../services/AppRepository'
 
@@ -14,7 +16,7 @@ import { appRepository } from '../services/AppRepository'
 struct Onboarding {
   @State cityCode: string = ''
   @State customCity: string = ''
-  @State trackedMetrics: TrackedMetric[] = [...DEFAULT_TRACKED_METRICS]
+  @State trackedMetrics: TrackedMetric[] = DEFAULT_TRACKED_METRICS.concat()
   @State isSubmitting: boolean = false
 
   aboutToAppear(): void {
@@ -25,7 +27,7 @@ struct Onboarding {
 
     this.cityCode = profile.cityCode ?? ''
     this.customCity = profile.city ?? ''
-    this.trackedMetrics = profile.trackedMetrics?.length ? profile.trackedMetrics : [...DEFAULT_TRACKED_METRICS]
+    this.trackedMetrics = profile.trackedMetrics?.length ? profile.trackedMetrics : DEFAULT_TRACKED_METRICS.concat()
   }
 
   private toggleMetric(metric: TrackedMetric): void {
@@ -38,7 +40,7 @@ struct Onboarding {
       return
     }
 
-    this.trackedMetrics = [...this.trackedMetrics, metric]
+    this.trackedMetrics = this.trackedMetrics.concat(metric)
   }
 
   build() {
@@ -64,7 +66,7 @@ struct Onboarding {
             .width('100%')
 
           Row({ space: 12 }) {
-            ForEach(CITY_OPTIONS, (item) => {
+            ForEach(CITY_OPTIONS, (item: SharedCityOption) => {
               Button(item.name)
                 .layoutWeight(1)
                 .height(52)
@@ -76,7 +78,7 @@ struct Onboarding {
                   this.cityCode = item.code
                   this.customCity = ''
                 })
-            }, (item) => item.code)
+            }, (item: SharedCityOption): string => item.code)
           }
           .width('100%')
 
@@ -107,7 +109,7 @@ struct Onboarding {
             .fontColor('#5B6477')
             .width('100%')
 
-          ForEach(METRIC_OPTIONS, (item) => {
+          ForEach(METRIC_OPTIONS, (item: MetricOption) => {
             Row({ space: 12 }) {
               Column({ space: 4 }) {
                 Text(getTrackedMetricLabel(item.id))
@@ -133,7 +135,7 @@ struct Onboarding {
             .padding(16)
             .backgroundColor('#F7F8FC')
             .borderRadius(18)
-          }, (item) => item.id)
+          }, (item: MetricOption): string => item.id)
         }
         .width('100%')
         .padding(18)

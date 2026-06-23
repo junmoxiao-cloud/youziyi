@@ -1,12 +1,19 @@
 {
   "pages": [
+    "pages/welcome/welcome",
+    "pages/login/login",
+    "pages/register/register",
+    "pages/onboarding/onboarding",
+    "pages/family-join/family-join",
+    "pages/role-select/role-select",
     "pages/index/index",
-    "pages/voice/voice",
-    "pages/logs/logs"
+    "pages/companion/companion",
+    "pages/profile/profile",
+    "pages/voice/voice"
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "Weixin",
+    "navigationBarTitleText": "游子衣",
     "navigationBarBackgroundColor": "#ffffff"
   },
   "style": "v2",

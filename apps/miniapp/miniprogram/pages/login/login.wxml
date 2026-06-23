@@ -1,0 +1,42 @@
+<view class="container login-container">
+  <view class="login-card">
+    <text class="yz-section-title login-title">游子衣</text>
+    <text class="login-subtitle">欢迎回来，我的朋友</text>
+
+    <view class="login-form">
+      <view class="login-field">
+        <text class="login-label">您的称呼</text>
+        <input
+          class="yz-input login-input"
+          value="{{name}}"
+          bindinput="onNameInput"
+          placeholder="请输入您的称呼"
+          placeholder-class="yz-input-placeholder"
+        />
+      </view>
+
+      <view class="login-field">
+        <text class="login-label">通行密码</text>
+        <input
+          class="yz-input login-input"
+          value="{{password}}"
+          bindinput="onPasswordInput"
+          placeholder="请输入您的密码"
+          placeholder-class="yz-input-placeholder"
+          password
+        />
+      </view>
+
+      <button
+        class="yz-btn yz-btn-primary login-submit"
+        bindtap="handleLogin"
+      >
+        进入游子衣
+      </button>
+    </view>
+
+    <view class="login-link" bindtap="navigateToRegister">
+      初次见面？<text class="login-link-text">建立家庭连接</text>
+    </view>
+  </view>
+</view>

@@ -11,6 +11,10 @@
     {
       "name": "EntryAbility_label",
       "value": "YouZiYi"
+    },
+    {
+      "name": "microphone_reason",
+      "value": "用于录制家庭语音消息，实现亲情语音接龙功能"
     }
   ]
 }

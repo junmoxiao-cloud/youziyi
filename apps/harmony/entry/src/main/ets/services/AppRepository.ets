@@ -21,6 +21,8 @@ import {
   UserProfileUpdatePayload,
   UserRole,
   VerificationResult,
+  VoiceListResponse,
+  VoiceUploadResult,
   WarningStatusData,
   WeatherData
 } from '../common/ApiModels';
@@ -29,6 +31,33 @@ import { MockApi } from '../mock/MockApi';
 interface ServerHealthData {
   status: string
   timestamp: number
+}
+
+interface RegisterPayload {
+  name: string
+  password: string
+  role: string
+  cityCode?: string
+}
+
+interface LoginPayload {
+  name: string
+  password: string
+}
+
+interface CreateFamilyPayload {
+  userId: string
+  familyName?: string
+}
+
+interface JoinFamilyPayload {
+  userId: string
+  inviteCode: string
+}
+
+interface UploadVoicePayload {
+  userId: string
+  filePath: string
 }
 
 function parseApiResponse<T>(rawResult: string): ApiResponse<T> {
@@ -42,14 +71,15 @@ function requestRemote<T>(
 ): Promise<ApiResponse<T>> {
   const httpRequest = http.createHttp()
   const requestUrl = resolveApiUrl(path)
+  const requestHeader: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
   const options: http.HttpRequestOptions = {
     method: method,
     expectDataType: http.HttpDataType.STRING,
     connectTimeout: 10000,
     readTimeout: 10000,
-    header: {
-      'Content-Type': 'application/json'
-    }
+    header: requestHeader as Object
   }
 
   if (payload !== undefined) {
@@ -122,9 +152,10 @@ export class AppRepository {
         }
 
         return MockApi.requestVerificationCode(phone).then((response) => {
+          const fallbackData = response.data
           const mergedResult: VerificationResult = {
-            codeHint: `${response.data.codeHint}；远程绑定地址 ${resolveApiUrl(APP_CONFIG.verification.remoteBindingPath)} 当前不可达。`,
-            canBypass: response.data.canBypass
+            codeHint: `${fallbackData?.codeHint ?? ''}；远程绑定地址 ${resolveApiUrl(APP_CONFIG.verification.remoteBindingPath)} 当前不可达。`,
+            canBypass: fallbackData?.canBypass ?? false
           }
 
           const mergedResponse: ApiResponse<VerificationResult> = {
@@ -143,12 +174,8 @@ export class AppRepository {
       return MockApi.register(name, password, role, cityCode)
     }
 
-    return requestRemote<AuthResult>('/api/auth/register', http.RequestMethod.POST, {
-      name,
-      password,
-      role,
-      cityCode
-    })
+    const payload: RegisterPayload = { name, password, role: role as string, cityCode }
+    return requestRemote<AuthResult>('/api/auth/register', http.RequestMethod.POST, payload)
   }
 
   login(name: string, password: string): Promise<ApiResponse<AuthResult>> {
@@ -156,10 +183,8 @@ export class AppRepository {
       return MockApi.login(name, password)
     }
 
-    return requestRemote<AuthResult>('/api/auth/login', http.RequestMethod.POST, {
-      name,
-      password
-    })
+    const payload: LoginPayload = { name, password }
+    return requestRemote<AuthResult>('/api/auth/login', http.RequestMethod.POST, payload)
   }
 
   getUserProfile(userId: string): Promise<ApiResponse<UserProfileResponse>> {
@@ -215,10 +240,8 @@ export class AppRepository {
       return MockApi.createFamily(userId, familyName)
     }
 
-    return requestRemote<FamilyCreateResult>('/api/family/create', http.RequestMethod.POST, {
-      userId,
-      familyName
-    })
+    const payload: CreateFamilyPayload = { userId, familyName }
+    return requestRemote<FamilyCreateResult>('/api/family/create', http.RequestMethod.POST, payload)
   }
 
   joinFamily(userId: string, inviteCode: string): Promise<ApiResponse<FamilyJoinResult>> {
@@ -226,10 +249,25 @@ export class AppRepository {
       return MockApi.joinFamily(userId, inviteCode)
     }
 
-    return requestRemote<FamilyJoinResult>('/api/family/join', http.RequestMethod.POST, {
-      userId,
-      inviteCode
-    })
+    const payload: JoinFamilyPayload = { userId, inviteCode }
+    return requestRemote<FamilyJoinResult>('/api/family/join', http.RequestMethod.POST, payload)
+  }
+
+  getVoiceList(userId: string): Promise<ApiResponse<VoiceListResponse>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.getVoiceList(userId)
+    }
+
+    return requestRemote<VoiceListResponse>(`/api/voice/list/${userId}`, http.RequestMethod.GET)
+  }
+
+  uploadVoice(userId: string, filePath: string): Promise<ApiResponse<VoiceUploadResult>> {
+    if (isMockMode(APP_CONFIG.apiMode)) {
+      return MockApi.uploadVoice(userId, filePath)
+    }
+
+    const payload: UploadVoicePayload = { userId, filePath }
+    return requestRemote<VoiceUploadResult>('/api/voice/upload', http.RequestMethod.POST, payload)
   }
 
   saveCareProfile(profile: CareProfileDraft): Promise<ApiResponse<CareProfileDraft>> {

@@ -1,9 +1,18 @@
-﻿@Entry
+import { appSession, resolveAuthenticatedRoute } from '../common/AppSession'
+
+@Entry
 @Component
 struct Splash {
   aboutToAppear(): void {
     setTimeout(() => {
-      this.getUIContext().getRouter().replaceUrl({ url: 'pages/Login' })
+      const userId = appSession.getUserId()
+      if (userId) {
+        const profile = appSession.getProfile()
+        const target = resolveAuthenticatedRoute(profile)
+        this.getUIContext().getRouter().replaceUrl({ url: target })
+      } else {
+        this.getUIContext().getRouter().replaceUrl({ url: 'pages/Login' })
+      }
     }, 1200)
   }
 

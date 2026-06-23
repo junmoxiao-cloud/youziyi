@@ -1,0 +1,69 @@
+<view class="container profile-container">
+  <view class="profile-header">
+    <view class="yz-tap-area back-btn" bindtap="onNavigateBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="profile-title">个人设置</text>
+    <view class="yz-tap-area back-btn placeholder"></view>
+  </view>
+
+  <block wx:if="{{!isLoading}}">
+    <view class="yz-card profile-section">
+      <text class="yz-section-title profile-section-title">您所在的城市</text>
+      <view class="city-grid">
+        <view
+          wx:for="{{cityOptions}}"
+          wx:key="code"
+          class="city-item {{cityCode === item.code && !customCity ? 'city-item-active' : ''}}"
+          data-code="{{item.code}}"
+          bindtap="onCityTap"
+        >
+          <text class="city-name">{{item.name}}</text>
+        </view>
+      </view>
+      <input
+        class="yz-input profile-input yz-mt-24"
+        placeholder="或输入其他城市名称..."
+        value="{{customCity}}"
+        bindinput="onCustomCityInput"
+      />
+      <text class="profile-hint">城市信息将用于显示当地天气，让家人了解您的环境。</text>
+    </view>
+
+    <view class="yz-card profile-section">
+      <text class="yz-section-title profile-section-title">日常健康指标</text>
+      <text class="profile-hint">心情为必选项，其余可根据需要选择</text>
+      <view class="metric-grid">
+        <view
+          wx:for="{{metricOptions}}"
+          wx:key="id"
+          class="metric-item {{trackedMetrics.indexOf(item.id) !== -1 ? 'metric-item-active' : ''}} {{item.id === 'mood' ? 'metric-item-required' : ''}}"
+          data-id="{{item.id}}"
+          bindtap="onMetricTap"
+        >
+          <text class="metric-icon">{{item.icon}}</text>
+          <text class="metric-label">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <button
+      class="yz-btn yz-btn-primary profile-save-btn"
+      disabled="{{isSaving}}"
+      bindtap="onSave"
+    >
+      {{isSaving ? '保存中...' : '保存设置'}}
+    </button>
+
+    <button
+      class="yz-btn profile-logout-btn"
+      bindtap="onLogout"
+    >
+      退出登录
+    </button>
+  </block>
+
+  <view wx:else class="profile-loading">
+    <text class="profile-loading-text">加载中...</text>
+  </view>
+</view>

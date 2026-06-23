@@ -1,0 +1,64 @@
+<view class="container register-container">
+  <view class="register-card">
+    <text class="yz-section-title register-title">游子衣</text>
+    <text class="register-subtitle">开启陪伴之旅</text>
+
+    <view class="register-form">
+      <view class="register-field">
+        <text class="register-label">您的称呼</text>
+        <input
+          class="yz-input register-input"
+          value="{{name}}"
+          bindinput="onNameInput"
+          placeholder="您希望我们怎么称呼您"
+          placeholder-class="yz-input-placeholder"
+        />
+      </view>
+
+      <view class="register-field">
+        <text class="register-label">通行密码</text>
+        <input
+          class="yz-input register-input"
+          value="{{password}}"
+          bindinput="onPasswordInput"
+          placeholder="设置您的专属密码"
+          placeholder-class="yz-input-placeholder"
+          password
+        />
+      </view>
+
+      <view class="register-field">
+        <text class="register-label">您的身份</text>
+        <view class="register-role-group">
+          <view
+            class="register-role-card {{role === 'elder' ? 'register-role-active' : ''}}"
+            data-role="elder"
+            bindtap="selectRole"
+          >
+            <text class="register-role-title">我是长辈</text>
+            <text class="register-role-desc">被牵挂的人</text>
+          </view>
+          <view
+            class="register-role-card {{role === 'child' ? 'register-role-active' : ''}}"
+            data-role="child"
+            bindtap="selectRole"
+          >
+            <text class="register-role-title">我是子女</text>
+            <text class="register-role-desc">牵挂家人的人</text>
+          </view>
+        </view>
+      </view>
+
+      <button
+        class="yz-btn yz-btn-primary register-submit"
+        bindtap="handleRegister"
+      >
+        开始连接
+      </button>
+    </view>
+
+    <view class="register-link" bindtap="navigateToLogin">
+      已经有连接了？<text class="register-link-text">立即回家</text>
+    </view>
+  </view>
+</view>

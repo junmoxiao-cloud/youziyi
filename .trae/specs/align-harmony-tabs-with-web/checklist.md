@@ -1,0 +1,11 @@
+- [x] `common/ApiModels.ets` 包含 `VoiceListItem`、`VoiceListResponse`、`VoiceUploadResult` 类型
+- [x] `services/AppRepository.ets` 包含 `getVoiceList` 与 `uploadVoice` 方法，支持 Mock/远程切换
+- [x] `mock/MockApi.ets` 包含 `getVoiceList` 与 `uploadVoice` 静态方法，Mock 数据可用
+- [x] `pages/tabs/InteractionTab.ets` 实现语音列表加载与渲染（区分长辈/子女样式）
+- [x] `pages/tabs/InteractionTab.ets` 实现录音功能（AVRecorder）与上传回调
+- [x] `pages/tabs/InteractionTab.ets` 实现语音播放控制（播放/暂停/高亮）
+- [x] `pages/tabs/HealthTab.ets` 实现亲情温度计（根据 warningLevel 变色）
+- [x] `pages/tabs/HealthTab.ets` 实现今日健康摘要与未打卡提示
+- [x] `pages/Splash.ets` 启动后按登录态与资料完整度自动分流
+- [x] `pages/tabs/ProfileTab.ets` 包含"退出登录"按钮且行为正确
+- [ ] 端到端验证通过（用户侧在 DevEco 虚拟机测试）

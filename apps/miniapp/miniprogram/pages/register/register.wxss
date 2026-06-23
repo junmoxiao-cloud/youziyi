@@ -1,0 +1,101 @@
+.register-container {
+  justify-content: center;
+  align-items: center;
+}
+
+.register-card {
+  width: 100%;
+  background-color: #ffffff;
+  border-radius: 32rpx;
+  padding: 64rpx 40rpx;
+  box-shadow: 0 8rpx 32rpx rgba(43, 45, 47, 0.08);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.register-title {
+  margin-bottom: 16rpx;
+}
+
+.register-subtitle {
+  display: block;
+  font-size: 40rpx;
+  color: #5a5c5f;
+  margin-bottom: 64rpx;
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 40rpx;
+  text-align: left;
+}
+
+.register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.register-label {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #2b2d2f;
+}
+
+.register-input {
+  min-height: 120rpx;
+}
+
+.register-role-group {
+  display: flex;
+  gap: 24rpx;
+}
+
+.register-role-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200rpx;
+  padding: 32rpx;
+  background-color: #ffffff;
+  border: 4rpx solid #e8e6e1;
+  border-radius: 24rpx;
+  box-sizing: border-box;
+}
+
+.register-role-active {
+  background-color: #eaf7f4;
+  border-color: #3ba88e;
+}
+
+.register-role-title {
+  font-size: 44rpx;
+  font-weight: 600;
+  color: #2b2d2f;
+  margin-bottom: 12rpx;
+}
+
+.register-role-desc {
+  font-size: 32rpx;
+  color: #5a5c5f;
+}
+
+.register-submit {
+  margin-top: 24rpx;
+  width: 100%;
+}
+
+.register-link {
+  margin-top: 48rpx;
+  font-size: 36rpx;
+  color: #5a5c5f;
+}
+
+.register-link-text {
+  color: #3ba88e;
+  font-weight: 600;
+  margin-left: 8rpx;
+}

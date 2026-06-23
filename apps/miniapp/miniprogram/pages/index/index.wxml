@@ -1,34 +1,212 @@
-<!--index.wxml-->
-<scroll-view class="scrollarea" scroll-y type="list">
+<scroll-view class="scrollarea" scroll-y type="list" enhanced="true" show-scrollbar="true">
   <view class="container">
+    <!-- 加载中 -->
+    <view class="yz-card loading-card" wx:if="{{isLoading}}">
+      <text class="loading-text">正在加载今日关怀数据…</text>
+    </view>
+
+    <!-- 打卡提醒弹窗 -->
+    <view class="reminder-popup" wx:if="{{showCheckInReminder}}">
+      <view class="reminder-content">
+        <view class="reminder-header">
+          <view>
+            <text class="reminder-tag">今日提醒</text>
+            <text class="reminder-title">今天还没报平安，先来打个卡吧</text>
+            <text class="reminder-desc">趁现在还在打卡时间里，记下今天的状态，家人会更安心。</text>
+          </view>
+          <button class="reminder-later" bindtap="dismissReminder">稍后再看</button>
+        </view>
+        <view class="reminder-actions">
+          <button class="reminder-primary" bindtap="focusCheckInForm">立即去打卡</button>
+          <text class="reminder-window">打卡时间：{{windowLabel}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 页面标题栏 -->
     <view class="header">
-      <text class="title">每日打卡</text>
-      <text class="subtitle">记录您的心情和健康</text>
-    </view>
-
-    <view class="mood-section">
-      <text class="section-title">今天心情怎么样？</text>
-      <view class="mood-buttons">
-        <button class="mood-btn happy" bindtap="checkIn" data-mood="happy">开心</button>
-        <button class="mood-btn calm" bindtap="checkIn" data-mood="calm">平静</button>
-        <button class="mood-btn sad" bindtap="checkIn" data-mood="sad">低落</button>
+      <view class="header-title-row">
+        <text class="yz-title">游子衣</text>
+        <text class="header-badge">长辈极简关怀</text>
+      </view>
+      <view class="header-actions">
+        <button class="header-btn" bindtap="navigateToProfile">个人设置</button>
+        <button class="header-btn header-btn-jade" bindtap="switchToCompanion">切换陪伴视图</button>
+        <button class="header-btn header-btn-blue" bindtap="generateInviteCode">
+          {{inviteCode ? '牵挂码：' + inviteCode : '生成牵挂码'}}
+        </button>
       </view>
     </view>
 
-    <view class="step-section">
-      <text class="section-title">今日步数</text>
-      <view class="step-input-wrapper">
-        <input class="step-input" type="number" placeholder="请输入步数" value="{{steps}}" bindinput="onStepInput" />
+    <!-- 今日打卡状态卡片 -->
+    <view class="yz-card status-card" wx:if="{{todayCheckInStatus}}">
+      <view class="status-header">
+        <text class="status-label">今日打卡提醒</text>
+        <text class="status-prompt">{{todayCheckInStatus.window.promptMessage}}</text>
+        <text class="status-date">
+          打卡日期：{{businessDateLabel}}，窗口：{{windowLabel}}
+        </text>
+      </view>
+
+      <view class="status-grid">
+        <view class="status-item">
+          <text class="status-item-label">今日状态</text>
+          <text class="status-item-value">{{todayCheckInStatus.hasCheckedInToday ? '已完成' : '待打卡'}}</text>
+        </view>
+        <view class="status-item">
+          <text class="status-item-label">当前时段</text>
+          <text class="status-item-value">{{currentPeriodLabel}}</text>
+        </view>
+        <view class="status-item">
+          <text class="status-item-label">最近打卡</text>
+          <text class="status-item-value">{{lastCheckInLabel}}</text>
+        </view>
+        <view class="status-item status-item-wide">
+          <text class="status-item-label">今日摘要</text>
+          <text class="status-item-summary">{{todaySummaryText}}</text>
+          <text class="status-item-hint">完成后，家人会同步看到您今天的状态</text>
+        </view>
+      </view>
+
+      <view class="metric-tags" wx:if="{{editableMetricLabels.length > 0}}">
+        <text class="metric-tag" wx:for="{{editableMetricLabels}}" wx:key="*this">{{item}}</text>
       </view>
     </view>
 
-    <view class="submit-section">
-      <button class="submit-btn" bindtap="submitCheckIn">提交打卡</button>
+    <!-- 无指标提示 -->
+    <view class="yz-card warning-card" wx:if="{{todayCheckInStatus && editableMetrics.length === 0}}">
+      <text class="warning-text">当前没有可打卡的指标，请先前往个人设置选择至少一项健康指标后再继续。</text>
     </view>
 
-    <!-- 导航到语音页面 -->
-    <view class="nav-section">
-      <button class="nav-btn" bindtap="navigateToVoice">家庭语音接龙</button>
+    <!-- 打卡表单 -->
+    <view class="yz-card form-card" id="checkin-form" wx:if="{{todayCheckInStatus}}">
+      <text class="yz-section-title form-title">分享您的今天</text>
+
+      <!-- 心情 -->
+      <view class="form-group" wx:if="{{hasMood}}">
+        <text class="form-label">今天感觉怎么样？</text>
+        <view class="big-button-row">
+          <button
+            class="big-button mood-button {{mood === item.value ? 'big-button-active' : ''}}"
+            wx:for="{{moods}}"
+            wx:key="value"
+            data-value="{{item.value}}"
+            bindtap="selectMood"
+          >
+            <text class="big-button-icon">{{item.icon}}</text>
+            <text class="big-button-label">{{item.label}}</text>
+          </button>
+        </view>
+      </view>
+
+      <!-- 步数与心率 -->
+      <view class="form-row">
+        <view class="form-group form-group-half" wx:if="{{hasSteps}}">
+          <text class="form-label">今天走了多少步呀？</text>
+          <input
+            class="yz-input form-number-input"
+            type="number"
+            placeholder="请输入步数"
+            value="{{steps}}"
+            bindinput="onStepsInput"
+          />
+        </view>
+        <view class="form-group form-group-half" wx:if="{{hasHeartRate}}">
+          <text class="form-label">您的心跳情况（次/分）</text>
+          <input
+            class="yz-input form-number-input"
+            type="number"
+            placeholder="请输入心率"
+            value="{{heartRate}}"
+            bindinput="onHeartRateInput"
+          />
+        </view>
+      </view>
+
+      <!-- 血压 -->
+      <view class="form-group" wx:if="{{hasBloodPressure}}">
+        <text class="form-label">血压情况（如 120/80）</text>
+        <input
+          class="yz-input"
+          type="text"
+          placeholder="请输入血压"
+          value="{{bloodPressure}}"
+          bindinput="onBloodPressureInput"
+        />
+      </view>
+
+      <!-- 血糖 -->
+      <view class="form-group" wx:if="{{hasBloodSugar}}">
+        <text class="form-label">血糖情况（mmol/L）</text>
+        <input
+          class="yz-input"
+          type="digit"
+          placeholder="请输入血糖"
+          value="{{bloodSugar}}"
+          bindinput="onBloodSugarInput"
+        />
+      </view>
+
+      <!-- 睡眠 -->
+      <view class="form-group" wx:if="{{hasSleep}}">
+        <text class="form-label">昨晚睡得好吗？</text>
+        <view class="big-button-row">
+          <button
+            class="big-button sleep-button {{sleep === item.value ? 'big-button-active' : ''}}"
+            wx:for="{{sleepOptions}}"
+            wx:key="value"
+            data-value="{{item.value}}"
+            bindtap="selectSleep"
+          >
+            <text class="big-button-icon">{{item.icon}}</text>
+            <text class="big-button-label">{{item.label}}</text>
+          </button>
+        </view>
+      </view>
+
+      <!-- 城市 -->
+      <view class="form-group">
+        <text class="form-label">您现在在哪里呢？</text>
+        <view class="city-display">{{cityLabel}}</view>
+        <text class="form-hint">城市信息来自您的个人资料。如需修改，请前往个人设置更新。</text>
+      </view>
+
+      <!-- 提交按钮 -->
+      <button
+        class="yz-btn yz-btn-primary submit-btn"
+        bindtap="submitCheckIn"
+        disabled="{{isSubmitDisabled || isSubmitting}}"
+      >
+        {{isSubmitting ? '正在传递您的挂念…' : todayCheckInStatus.hasCheckedInToday ? '今天已经报过平安了' : todayCheckInStatus.window.isWithinCheckInWindow ? '立即报个平安' : '当前不在打卡时间'}}
+      </button>
+
+      <!-- 结果提示 -->
+      <view class="message-box message-{{message.type}}" wx:if="{{message}}">
+        <text>{{message.text}}</text>
+      </view>
     </view>
+
+    <!-- 最近几天记录 -->
+    <view class="yz-card recent-card" wx:if="{{recentDaysDisplay.length > 0}}">
+      <text class="yz-section-title">最近几天的打卡记录</text>
+      <text class="recent-subtitle" wx:if="{{dailyHealthAggregates}}">
+        展示最近 {{dailyHealthAggregates.requestedDays}} 天的记录变化，方便回看这几天的状态。
+      </text>
+
+      <view class="recent-day" wx:for="{{recentDaysDisplay}}" wx:key="date">
+        <view class="recent-day-main">
+          <text class="recent-day-date">{{item.dateLabel}}</text>
+          <text class="recent-day-status">{{item.hasCheckedIn ? '已打卡 ' + item.recordCount + ' 次' : '未打卡'}}</text>
+        </view>
+        <view class="recent-day-detail">
+          <text class="recent-day-tag" wx:if="{{hasMood}}">心情：{{item.moodLabel}}</text>
+          <text class="recent-day-tag" wx:if="{{hasSteps}}">步数：{{item.stepsLabel}}</text>
+          <text class="recent-day-tag" wx:if="{{hasHeartRate}}">心率：{{item.heartRateLabel}}</text>
+          <text class="recent-day-tag">最新：{{item.latestCheckInLabel}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="yz-safe-bottom"></view>
   </view>
 </scroll-view>
