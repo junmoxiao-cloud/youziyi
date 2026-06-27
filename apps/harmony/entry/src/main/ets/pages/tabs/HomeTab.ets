@@ -1,14 +1,18 @@
 import promptAction from '@ohos.promptAction'
 import { SectionCard } from '../../components/SectionCard'
+import { WeatherCard } from '../../components/WeatherCard'
 import {
   CheckInPayload,
+  FamilyWeatherEntry,
   HOME_CHECKIN_PAGE_DEFINITION,
   HomeCheckInState,
   TodayCheckInStatusResponse,
   TrackedMetric,
   UserProfileResponse,
+  WeatherData,
   getTrackedMetricLabel,
-  resolveCityLabel
+  resolveCityLabel,
+  resolveFamilyWeatherList
 } from '../../common/ApiModels'
 import { appSession } from '../../common/AppSession'
 import { appRepository } from '../../services/AppRepository'
@@ -41,6 +45,8 @@ export struct HomeTab {
   @State lastRecordId: string = ''
   @State profile: UserProfileResponse | null = null
   @State todayStatus: TodayCheckInStatusResponse | null = null
+  @State weatherEntries: FamilyWeatherEntry[] = []
+  @State weatherDataMap: Map<string, WeatherData> = new Map()
 
   aboutToAppear(): void {
     this.loadData()
@@ -57,6 +63,7 @@ export struct HomeTab {
       if (response.data) {
         this.profile = response.data
         appSession.setProfile(response.data)
+        this.loadFamilyWeathers()
       }
       return appRepository.getTodayCheckInStatus(userId)
     }).then((response) => {
@@ -71,6 +78,38 @@ export struct HomeTab {
       this.submitMessage = '打卡状态加载失败，请稍后重试。'
       promptAction.showToast({ message: error.message })
     })
+  }
+
+  private loadFamilyWeathers(): void {
+    this.weatherDataMap = new Map()
+
+    const userId = appSession.getUserId()
+    const entries: FamilyWeatherEntry[] = resolveFamilyWeatherList(this.profile, userId)
+    this.weatherEntries = entries
+
+    const requests: Promise<void>[] = []
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]
+      if (!entry.cityCode) {
+        continue
+      }
+      requests.push(
+        appRepository.getWeather(entry.cityCode).then((response) => {
+          if (response.data) {
+            this.weatherDataMap.set(entry.userId, response.data)
+          }
+        }).catch((error: Error) => {
+          console.error(`load weather for ${entry.name} failed`, error)
+        })
+      )
+    }
+
+    if (requests.length > 0) {
+      Promise.all(requests).catch((error: Error) => {
+        console.error('loadFamilyWeathers failed', error)
+      })
+    }
   }
 
   private getStateSnapshot(): HomeCheckInState {
@@ -255,6 +294,43 @@ export struct HomeTab {
   build() {
     Scroll() {
       Column({ space: 16 }) {
+        if (this.weatherEntries.length > 0) {
+          Column({ space: 12 }) {
+            Text('同一片天空')
+              .fontSize(28)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#20315F')
+              .width('100%')
+
+            ForEach(this.weatherEntries, (entry: FamilyWeatherEntry) => {
+              if (this.weatherDataMap.get(entry.userId)) {
+                WeatherCard({
+                  layout: 'horizontal',
+                  title: entry.relationLabel,
+                  subtitle: entry.name,
+                  cityName: this.weatherDataMap.get(entry.userId)!.cityName ?? resolveCityLabel(undefined, entry.cityCode),
+                  weatherType: this.weatherDataMap.get(entry.userId)!.weatherType,
+                  temperature: this.weatherDataMap.get(entry.userId)!.temperature,
+                  humidity: this.weatherDataMap.get(entry.userId)!.humidity
+                })
+              } else {
+                SectionCard({
+                  title: entry.relationLabel,
+                  description: `${entry.name} 的天气暂不可用`,
+                  accentColor: '#91B4FF'
+                })
+              }
+            }, (entry: FamilyWeatherEntry) => entry.userId)
+          }
+          .width('100%')
+        } else if (this.profile) {
+          SectionCard({
+            title: '天气信息',
+            description: '天气暂不可用',
+            accentColor: '#91B4FF'
+          })
+        }
+
         Text('每日打卡')
           .fontSize(30)
           .fontWeight(FontWeight.Bold)

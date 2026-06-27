@@ -19,7 +19,7 @@ struct Login {
       appSession.setProfile(response.data)
       this.getUIContext().getRouter().replaceUrl({ url: resolveAuthenticatedRoute(response.data) })
     }).catch((error: Error) => {
-      promptAction.showToast({ message: error.message })
+      promptAction.showDialog({ title: '出错了', message: error.message, buttons: [{ text: '知道了', color: '#20315F' }] })
     }).finally(() => {
       this.isSubmitting = false
     })
@@ -151,7 +151,7 @@ struct Login {
                 }
               }).catch((error: Error) => {
                 this.isSubmitting = false
-                promptAction.showToast({ message: error.message })
+                promptAction.showDialog({ title: '出错了', message: error.message, buttons: [{ text: '知道了', color: '#20315F' }] })
               })
               return
             }
@@ -165,7 +165,7 @@ struct Login {
               }
             }).catch((error: Error) => {
               this.isSubmitting = false
-              promptAction.showToast({ message: error.message })
+              promptAction.showDialog({ title: '出错了', message: error.message, buttons: [{ text: '知道了', color: '#20315F' }] })
             })
           })
 

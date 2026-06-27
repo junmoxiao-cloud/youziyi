@@ -65,12 +65,12 @@ struct Onboarding {
             .fontWeight(FontWeight.Bold)
             .width('100%')
 
-          Row({ space: 12 }) {
+          Column({ space: 12 }) {
             ForEach(CITY_OPTIONS, (item: SharedCityOption) => {
               Button(item.name)
-                .layoutWeight(1)
-                .height(52)
-                .fontSize(18)
+                .width('100%')
+                .height(56)
+                .fontSize(22)
                 .fontColor(this.cityCode === item.code && !this.customCity ? '#FFFFFF' : '#20315F')
                 .backgroundColor(this.cityCode === item.code && !this.customCity ? '#20315F' : '#FFFFFF')
                 .border({ width: 1, color: '#C9D9FF' })

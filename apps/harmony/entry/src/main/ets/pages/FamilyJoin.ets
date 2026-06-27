@@ -10,6 +10,7 @@ struct FamilyJoin {
   @State familyName: string = ''
   @State inviteCode: string = ''
   @State isSubmitting: boolean = false
+  @State isConnected: boolean = false
   @State familySummary: string = '创建家庭或输入牵挂码后，将显示家庭名称、邀请码和成员信息。'
 
   aboutToAppear(): void {
@@ -22,6 +23,7 @@ struct FamilyJoin {
       if (response.data) {
         appSession.setProfile(response.data)
         if (response.data.familyInfo) {
+          this.isConnected = true
           this.familySummary = `已连接 ${response.data.familyInfo.familyName}`
         }
       }
@@ -30,6 +32,14 @@ struct FamilyJoin {
 
   private getConnectedFamily() {
     return appSession.getProfile()?.familyInfo ?? null
+  }
+
+  onBackPress(): boolean {
+    if (this.isConnected || this.getConnectedFamily()) {
+      this.getUIContext().getRouter().replaceUrl({ url: 'pages/Main' })
+      return true
+    }
+    return false
   }
 
   @Builder
@@ -78,33 +88,47 @@ struct FamilyJoin {
           .fontColor('#5B6477')
           .width('100%')
 
-        if (this.getConnectedFamily()) {
-          Column({ space: 12 }) {
-            Text(this.getConnectedFamily()!.familyName)
-              .fontSize(24)
-              .fontWeight(FontWeight.Bold)
-              .width('100%')
+        if (this.isConnected || this.getConnectedFamily()) {
+          Column({ space: 16 }) {
+            if (this.getConnectedFamily()) {
+              Text(this.getConnectedFamily()!.familyName)
+                .fontSize(26)
+                .fontWeight(FontWeight.Bold)
+                .width('100%')
 
-            Text(`牵挂码：${this.getConnectedFamily()!.inviteCode}`)
-              .fontSize(18)
-              .fontColor('#20315F')
-              .width('100%')
+              Text(`牵挂码：${this.getConnectedFamily()!.inviteCode}`)
+                .fontSize(22)
+                .fontColor('#20315F')
+                .width('100%')
 
-            ForEach(this.getConnectedFamily()!.members, (member: FamilyProfileMember) => {
-              this.buildMemberItem(member)
-            }, (member: FamilyProfileMember): string => member.userId)
+              ForEach(this.getConnectedFamily()!.members, (member: FamilyProfileMember) => {
+                this.buildMemberItem(member)
+              }, (member: FamilyProfileMember): string => member.userId)
+            } else {
+              Text('家庭连接成功')
+                .fontSize(26)
+                .fontWeight(FontWeight.Bold)
+                .width('100%')
+
+              Text('正在加载家庭信息...')
+                .fontSize(18)
+                .fontColor('#5B6477')
+                .width('100%')
+            }
 
             Button('进入主页')
               .width('100%')
-              .height(56)
-              .fontSize(20)
+              .height(64)
+              .fontSize(22)
+              .fontWeight(FontWeight.Bold)
+              .margin({ top: 12 })
               .backgroundColor('#20315F')
               .onClick(() => {
                 this.getUIContext().getRouter().replaceUrl({ url: 'pages/Main' })
               })
           }
           .width('100%')
-          .padding(18)
+          .padding(24)
           .backgroundColor('#FFFFFF')
           .borderRadius(20)
         } else {
@@ -165,12 +189,16 @@ struct FamilyJoin {
                     this.isSubmitting = true
                     appRepository.createFamily(userId, this.familyName.trim()).then((response) => {
                       if (response.data) {
+                        this.isConnected = true
                         this.familySummary = `${response.message}，牵挂码 ${response.data.inviteCode}`
                       }
                       return appRepository.getUserProfile(userId)
                     }).then((profileResponse) => {
                       if (profileResponse.data) {
                         appSession.setProfile(profileResponse.data)
+                        if (profileResponse.data.familyInfo) {
+                          this.isConnected = true
+                        }
                       }
                       promptAction.showToast({ message: '家庭信息已刷新' })
                     }).catch((error: Error) => {
@@ -215,10 +243,16 @@ struct FamilyJoin {
 
                     this.isSubmitting = true
                     appRepository.joinFamily(userId, this.inviteCode.trim()).then((response) => {
+                      this.isConnected = true
                       this.familySummary = response.message
                       return appRepository.getUserProfile(userId)
                     }).then((profileResponse) => {
-                      appSession.setProfile(profileResponse.data)
+                      if (profileResponse.data) {
+                        appSession.setProfile(profileResponse.data)
+                        if (profileResponse.data.familyInfo) {
+                          this.isConnected = true
+                        }
+                      }
                       promptAction.showToast({ message: '已成功加入家庭' })
                     }).catch((error: Error) => {
                       promptAction.showToast({ message: error.message })

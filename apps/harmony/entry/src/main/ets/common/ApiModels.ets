@@ -264,6 +264,7 @@ export interface WarningStatusData {
 
 export interface WeatherData {
   cityCode: string
+  cityName?: string
   weatherType: string
   temperature: number
   humidity: number
@@ -430,4 +431,124 @@ export interface VoiceUploadResult {
   recordId: string
   audioUrl: string
   duration: number
+}
+
+export interface FamilyWeatherCityCodes {
+  elderCityCode: string | null
+  elderName: string
+  childCityCode: string | null
+  childName: string
+}
+
+export function normalizeCityCode(cityCode?: string | null): string {
+  if (typeof cityCode !== 'string' || cityCode.trim().length === 0) {
+    return ''
+  }
+  return cityCode.trim().toUpperCase()
+}
+
+export function resolveFamilyWeatherCityCodes(
+  profile: UserProfileResponse | null,
+  userId: string
+): FamilyWeatherCityCodes {
+  const familyMembers = profile?.familyInfo?.members ?? []
+  const currentProfileRole = profile?.role ?? null
+
+  if (!profile?.familyInfo || familyMembers.length === 0) {
+    return {
+      elderCityCode: null,
+      elderName: '',
+      childCityCode: null,
+      childName: ''
+    }
+  }
+
+  const currentMember =
+    familyMembers.find((member) => member.userId === userId) ??
+    familyMembers.find((member) => member.role === currentProfileRole) ??
+    null
+
+  const counterpartMember =
+    familyMembers.find((member) => member.userId !== userId) ??
+    familyMembers.find((member) => member.role !== currentProfileRole) ??
+    null
+
+  const elderMember =
+    familyMembers.find((member) => member.role === 'elder') ??
+    (currentProfileRole === 'elder' ? currentMember : counterpartMember)
+
+  const childMember =
+    familyMembers.find((member) => member.role === 'child') ??
+    (currentProfileRole === 'child' ? currentMember : counterpartMember)
+
+  return {
+    elderCityCode: elderMember?.cityCode
+      ? normalizeCityCode(elderMember.cityCode)
+      : (currentProfileRole === 'elder' && profile.cityCode
+        ? normalizeCityCode(profile.cityCode)
+        : null),
+    elderName: elderMember?.name ?? '',
+    childCityCode: childMember?.cityCode
+      ? normalizeCityCode(childMember.cityCode)
+      : (currentProfileRole === 'child' && profile.cityCode
+        ? normalizeCityCode(profile.cityCode)
+        : null),
+    childName: childMember?.name ?? ''
+  }
+}
+
+export interface FamilyWeatherEntry {
+  userId: string
+  name: string
+  role: UserRole
+  cityCode: string    // 规范化后的大写 cityCode，无则空字符串
+  cityName: string    // 成员所在城市名，无则空字符串
+  relationLabel: string  // 如"家乡"/"远方"/成员名字
+}
+
+export function resolveFamilyWeatherList(
+  profile: UserProfileResponse | null,
+  userId: string
+): FamilyWeatherEntry[] {
+  if (!profile) {
+    return []
+  }
+
+  const familyMembers = profile.familyInfo?.members ?? []
+
+  if (!profile.familyInfo || familyMembers.length === 0) {
+    const myEntry: FamilyWeatherEntry = {
+      userId: profile.userId,
+      name: profile.name,
+      role: profile.role,
+      cityCode: normalizeCityCode(profile.cityCode),
+      cityName: profile.city ?? '',
+      relationLabel: '我的城市'
+    }
+    return [myEntry]
+  }
+
+  const entries: FamilyWeatherEntry[] = []
+  for (let i = 0; i < familyMembers.length; i++) {
+    const member = familyMembers[i]
+    let relationLabel: string
+    if (member.role === 'elder') {
+      relationLabel = '家乡'
+    } else if (member.role === 'child') {
+      relationLabel = '远方'
+    } else {
+      relationLabel = member.name
+    }
+
+    const entry: FamilyWeatherEntry = {
+      userId: member.userId,
+      name: member.name,
+      role: member.role,
+      cityCode: normalizeCityCode(member.cityCode),
+      cityName: member.city ?? '',
+      relationLabel: relationLabel
+    }
+    entries.push(entry)
+  }
+  return entries
 }

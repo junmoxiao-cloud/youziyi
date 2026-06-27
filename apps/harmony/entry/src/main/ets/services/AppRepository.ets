@@ -91,19 +91,21 @@ function requestRemote<T>(
       httpRequest.destroy()
 
       if (error) {
-        reject(new Error(`远程请求失败: ${requestUrl}`))
+        reject(new Error(`远程请求失败: ${requestUrl}\n错误: ${error.message}`))
         return
       }
 
       if (data.responseCode < 200 || data.responseCode >= 300) {
-        reject(new Error(`远程请求状态异常(${data.responseCode}): ${requestUrl}`))
+        const responseBody = typeof data.result === 'string' ? data.result.slice(0, 300) : String(data.result).slice(0, 300)
+        reject(new Error(`远程请求状态异常(${data.responseCode}): ${requestUrl}\n响应: ${responseBody}`))
         return
       }
 
       try {
         resolve(parseApiResponse<T>(data.result as string))
       } catch (parseError) {
-        reject(new Error(`远程响应解析失败: ${requestUrl}`))
+        const responseBody = typeof data.result === 'string' ? data.result.slice(0, 300) : String(data.result).slice(0, 300)
+        reject(new Error(`远程响应解析失败: ${requestUrl}\n内容: ${responseBody}`))
       }
     })
   })
