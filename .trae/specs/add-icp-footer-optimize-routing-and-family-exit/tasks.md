@@ -27,14 +27,14 @@
   - [~] 运行时联调测试（牵挂码流程、退出家庭、两账号互相加入等）按用户选择暂缓，留待云服务器部署后验证
   - 注：`tsc -b` 失败为预先存在的 `CompanionDashboard.test.tsx` 测试类型问题（toBeInTheDocument），与本次修改无关
 
-- [~] Task 5: 提交代码并推送到 GitHub（阻塞中，等待用户确认仓库环境）
+- [x] Task 5: 提交代码并推送到 GitHub
   - [x] 本地构建验证通过（`vite build` exit 0，654 modules transformed，产物正常）—— 证据已实时复核
   - [x] 关键改动 Grep/Read 全部命中：`store/index.ts:522` leaveFamily、`server/index.ts:1003` family/leave、`Welcome.tsx:12` showInviteInput、`Footer.tsx` 完整内容
   - [x] GitHub 远程仓库地址 `https://github.com/junmoxiao-cloud/youziyi` 已写入 `.trae/rules/技术开发规则.md` 2.1 节
-  - [ ] 使用 `git-commit` skill 生成规范的 conventional commit message
-  - [ ] 确认所有修改文件已暂存并提交
-  - [ ] 推送到 GitHub 仓库
-  - **阻塞原因**：`youziyi-oss` 目录无独立 `.git`，git 命令实际作用于父目录 `c:\Users\dou12\Desktop\youziyi` 仓库（本地 `master` 分支仅 3 提交，与 GitHub 远程 `main` 历史不同源，`youziyi-oss/` 在父目录 git 中为 untracked）。已暂停所有 git 操作，等待用户手动确认仓库情况后给指示。
+  - [x] 在 youziyi-oss 建立独立 git 仓库并关联远程（详见 `fix-git-repo-binding-to-youziyi-oss` spec）
+  - [x] 使用 `git-commit` skill 生成规范的 conventional commit message（commit `4f23664`）
+  - [x] 确认所有修改文件已暂存并提交（26 files changed, 1091 insertions, 175 deletions）
+  - [x] 推送到 GitHub 仓库（`aefa030..4f23664 main -> main`，fast-forward，远程 SHA 与本地一致）
 
 - [ ] Task 6: 云服务器部署更新
   - [ ] 登录云服务器，从 GitHub 拉取最新代码
