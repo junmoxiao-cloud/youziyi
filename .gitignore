@@ -62,3 +62,7 @@ oh_modules/
 miniprogram_npm/
 project.private.config.json
 *.wxapkg
+
+# 本地保留的旧副本（远程 main 已 rename/delete 清理，不应重新提交）
+assignments/微信视频2026-06-26_131544_128.mp4
+assignments/游子衣答辩PPT_harmony.pptx

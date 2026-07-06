@@ -1000,6 +1000,55 @@ app.post('/api/family/join', async (req: Request, res: Response) => {
   }
 });
 
+app.post('/api/family/leave', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ code: 400, data: null, message: '缺少 userId 参数' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return sendNotFound(res, '用户不存在');
+    }
+
+    const membership = await prisma.familyMember.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!membership) {
+      const response: ApiResponse = {
+        code: 0,
+        data: { userId: user.id, leftFamily: false },
+        message: '用户当前不在任何家庭中',
+      };
+      res.json(response);
+      return;
+    }
+
+    await prisma.familyMember.delete({
+      where: {
+        familyId_userId: {
+          familyId: membership.familyId,
+          userId: user.id,
+        },
+      },
+    });
+
+    const response: ApiResponse = {
+      code: 0,
+      data: { userId: user.id, leftFamily: true },
+      message: '已退出家庭',
+    };
+    res.json(response);
+  } catch (error) {
+    console.error('Family Leave Error:', error);
+    res.status(500).json({ code: 500, data: null, message: '内部服务器错误' });
+  }
+});
+
 // 启动服务
 app.listen(port, () => {
   console.log(`[Server]: API server is running at http://localhost:${port}`);

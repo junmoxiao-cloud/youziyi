@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import Footer from '../components/Footer';
 
 const RoleSelect: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ const RoleSelect: React.FC = () => {
           <span className="text-xl font-serif text-ink-800">我是子女</span>
         </button>
       </div>
+      <Footer />
     </div>
   );
 };

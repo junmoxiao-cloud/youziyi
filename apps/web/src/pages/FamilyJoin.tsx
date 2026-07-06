@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { resolveCityLabel, resolveTodayHealthSnapshot } from '@youziyi/types';
 import { useStore } from '../store';
+import Footer from '../components/Footer';
 
 function formatTimeLabel(timestamp: number | null | undefined): string {
   if (!timestamp) {
@@ -38,6 +39,7 @@ const FamilyJoin: React.FC = () => {
   const dailyHealthAggregates = useStore((state) => state.dailyHealthAggregates);
   const createFamily = useStore((state) => state.createFamily);
   const joinFamily = useStore((state) => state.joinFamily);
+  const leaveFamily = useStore((state) => state.leaveFamily);
   const [inviteCode, setInviteCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -46,6 +48,8 @@ const FamilyJoin: React.FC = () => {
   const [mode, setMode] = useState<'join' | 'create'>('create');
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [successProfileOverride, setSuccessProfileOverride] = useState<typeof userProfile | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   const displayedProfile = successProfileOverride ?? userProfile;
   const displayedFamilyInfo = displayedProfile?.familyInfo ?? null;
@@ -148,9 +152,31 @@ const FamilyJoin: React.FC = () => {
     }
   };
 
+  const handleLeave = async () => {
+    if (!userId) {
+      setShowLeaveConfirm(false);
+      return;
+    }
+    setIsLeaving(true);
+    const res = await leaveFamily(userId);
+    if (res.success) {
+      setSuccessProfileOverride(null);
+      setJoinSuccess(false);
+      setCreatedCode(null);
+      setSuccessMessage('');
+      setShowLeaveConfirm(false);
+      setError('');
+    } else {
+      setError(res.message || '退出失败，请稍后重试');
+      setShowLeaveConfirm(false);
+    }
+    setIsLeaving(false);
+  };
+
   return (
-    <div className="min-h-screen bg-paper-100 flex items-center justify-center font-sans p-6">
-      <div className="bg-white p-10 rounded-3xl shadow-md border border-paper-200 w-full max-w-md relative overflow-hidden">
+    <div className="min-h-screen bg-paper-100 flex flex-col items-center font-sans p-6">
+      <div className="flex-1 flex items-center justify-center w-full">
+        <div className="bg-white p-10 rounded-3xl shadow-md border border-paper-200 w-full max-w-md relative overflow-hidden">
         {/* 顶部装饰条 */}
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-jade-400 to-jade-600"></div>
         
@@ -271,6 +297,41 @@ const FamilyJoin: React.FC = () => {
             >
               进入主页
             </button>
+
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              disabled={isLeaving}
+              className="mt-3 w-full bg-white text-cinnabar-600 text-base py-3 rounded-2xl hover:bg-cinnabar-50 transition-colors border border-cinnabar-200 disabled:opacity-50"
+            >
+              {isLeaving ? '正在退出...' : '退出家庭'}
+            </button>
+
+            {showLeaveConfirm && (
+              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-xl">
+                  <h3 className="text-xl font-serif font-bold text-ink-900 mb-3">确认退出家庭？</h3>
+                  <p className="text-ink-600 mb-6 leading-relaxed">
+                    退出后将解除与 {displayedFamilyInfo?.familyName} 的连接。您之后可以重新创建家庭或输入新的牵挂码加入其他家庭。
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowLeaveConfirm(false)}
+                      disabled={isLeaving}
+                      className="flex-1 py-3 rounded-xl border border-paper-300 text-ink-700 hover:bg-paper-50 transition-colors disabled:opacity-50"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleLeave}
+                      disabled={isLeaving}
+                      className="flex-1 py-3 rounded-xl bg-cinnabar-500 text-white hover:bg-cinnabar-600 transition-colors disabled:opacity-50"
+                    >
+                      {isLeaving ? '退出中...' : '确认退出'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : joinSuccess ? (
           <div className="text-center py-8">
@@ -397,7 +458,9 @@ const FamilyJoin: React.FC = () => {
             </p>
           </div>
         )}
+        </div>
       </div>
+      <Footer />
     </div>
   );
 };

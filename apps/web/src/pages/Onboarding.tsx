@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CITY_OPTIONS, type TrackedMetric, normalizeTrackedMetrics } from '@youziyi/types';
 import { useStore } from '../store';
+import Footer from '../components/Footer';
 
 const DEFAULT_METRICS: Array<{ id: TrackedMetric; label: string; icon: string; default: boolean }> = [
   { id: 'mood', label: '心情', icon: '😊', default: true },
@@ -172,6 +173,7 @@ const Onboarding: React.FC = () => {
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

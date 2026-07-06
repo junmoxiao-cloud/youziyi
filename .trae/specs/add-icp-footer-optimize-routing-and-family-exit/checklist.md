@@ -1,0 +1,23 @@
+# Checklist
+
+- [x] ICP 备案 Footer 组件已创建，包含备案号和 `beian.miit.gov.cn` 链接
+- [x] MainLayout 页面已集成 Footer 组件
+- [x] Welcome、Login、Register、RoleSelect、Onboarding、FamilyJoin 页面均已添加 Footer
+- [x] Footer 不遮挡页面主要交互区域
+- [x] Welcome 页"我有牵挂码"按钮点击后展开输入区域（不跳转）
+- [x] 牵挂码输入后携带 `inviteCode` 参数跳转至 login/register
+- [x] Login 页登录成功后自动处理 `inviteCode` 参数并调用 joinFamily
+- [x] Register 页注册成功后自动处理 `inviteCode` 参数并调用 joinFamily
+- [x] 已登录用户在 Welcome 页输入牵挂码可直接加入
+- [x] 无效牵挂码展示错误提示，不跳转
+- [x] 后端 `/api/family/leave` 接口已实现
+- [x] `docs/API接口规范.md` 已同步更新 leave 接口文档
+- [x] Store 已新增 `leaveFamily` action
+- [x] Profile 页"退出家庭"按钮已添加（familyId 存在时显示）
+- [x] 退出家庭二次确认弹窗已实现
+- [x] 退出成功后清除前端状态并展示反馈
+- [x] FamilyJoin 页已连接家庭视图也已添加"退出家庭"按钮
+- [ ] 两账号互相加入场景验证通过（A 创建 → B 加入；B 退出 → B 创建 → A 加入）—— 留待云服务器部署后运行时验证
+- [ ] 所有 ICP 备案信息在桌面端和移动端均显示正常 —— 留待云服务器部署后运行时验证
+- [ ] 代码已提交并使用 conventional commit 推送至 GitHub
+- [ ] 云服务器前端已更新部署并验证可用

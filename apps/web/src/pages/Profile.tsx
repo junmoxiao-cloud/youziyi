@@ -14,7 +14,7 @@ const DEFAULT_METRICS: Array<{ value: TrackedMetric; label: string; icon: string
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { userId, userProfile, fetchUserProfile, updateUserProfile, userRole } = useStore();
+  const { userId, userProfile, fetchUserProfile, updateUserProfile, userRole, leaveFamily } = useStore();
   
   const [cityCode, setCityCode] = useState<string>('');
   const [customCity, setCustomCity] = useState<string>('');
@@ -23,6 +23,10 @@ const Profile: React.FC = () => {
   
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [leaveMsg, setLeaveMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -115,6 +119,27 @@ const Profile: React.FC = () => {
     }
     
     setIsSaving(false);
+  };
+
+  const handleLeave = async () => {
+    if (!userId) {
+      setLeaveMsg({ type: 'error', text: '登录状态已失效，请重新登录后再操作。' });
+      setShowLeaveConfirm(false);
+      return;
+    }
+    setIsLeaving(true);
+    const res = await leaveFamily(userId);
+    if (res.success) {
+      setLeaveMsg({ type: 'success', text: res.message || '已退出家庭' });
+      setShowLeaveConfirm(false);
+      setTimeout(() => {
+        navigate('/family/join');
+      }, 1000);
+    } else {
+      setLeaveMsg({ type: 'error', text: res.message || '退出失败，请稍后重试' });
+      setShowLeaveConfirm(false);
+    }
+    setIsLeaving(false);
   };
 
   return (
@@ -224,6 +249,62 @@ const Profile: React.FC = () => {
           )}
         </form>
       </main>
+
+      {userProfile?.familyId && (
+        <section className="mt-6 w-full max-w-2xl bg-white p-8 rounded-3xl shadow-sm border border-paper-200">
+          <h2 className="text-2xl font-serif font-bold text-ink-900 mb-4">家庭管理</h2>
+          <p className="text-ink-500 mb-6 leading-relaxed">
+            退出家庭后，您将不再与当前家人共享状态。如需再次连接，请重新输入牵挂码。
+          </p>
+          {leaveMsg && (
+            <div className={`mb-4 p-4 rounded-xl text-center text-lg font-serif ${
+              leaveMsg.type === 'success' ? 'bg-jade-100 text-jade-800' : 'bg-cinnabar-100 text-cinnabar-800'
+            }`}>
+              {leaveMsg.text}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setLeaveMsg(null);
+              setShowLeaveConfirm(true);
+            }}
+            disabled={isLeaving}
+            className="w-full bg-cinnabar-100 text-cinnabar-700 border border-cinnabar-300 text-xl font-serif py-4 rounded-xl hover:bg-cinnabar-200 transition-colors disabled:opacity-50"
+          >
+            {isLeaving ? '正在退出...' : '退出家庭'}
+          </button>
+        </section>
+      )}
+
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-xl font-serif font-bold text-ink-900 mb-3">确认退出家庭？</h3>
+            <p className="text-ink-600 mb-6 leading-relaxed">
+              退出后将解除与当前家人的连接，您之后可以重新创建或加入其他家庭。
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                disabled={isLeaving}
+                className="flex-1 py-3 rounded-xl border border-paper-300 text-ink-700 hover:bg-paper-50 transition-colors disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleLeave}
+                disabled={isLeaving}
+                className="flex-1 py-3 rounded-xl bg-cinnabar-500 text-white hover:bg-cinnabar-600 transition-colors disabled:opacity-50"
+              >
+                {isLeaving ? '退出中...' : '确认退出'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

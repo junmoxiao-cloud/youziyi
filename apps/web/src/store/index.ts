@@ -90,6 +90,7 @@ interface AppState {
     userId: string,
     inviteCode: string
   ) => Promise<{ success: boolean; message?: string; profile?: UserProfile | null }>;
+  leaveFamily: (userId: string) => Promise<{ success: boolean; message?: string }>;
   login: (name: string, password: string) => Promise<{success: boolean, userId?: string, message?: string}>;
   register: (name: string, password: string, role: 'elder' | 'child', cityCode?: string) => Promise<{success: boolean, userId?: string, message?: string}>;
 }
@@ -512,6 +513,26 @@ export const useStore = create<AppState>((set, get) => ({
         return { success: true, profile };
       }
       return { success: false, message: data.message || '加入失败' };
+    } catch (e) {
+      console.error(e);
+      return { success: false, message: '网络错误' };
+    }
+  },
+
+  leaveFamily: async (userId: string) => {
+    try {
+      const res = await fetch('/api/family/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (res.ok && data.code === 0) {
+        // 退出成功后刷新 profile 清除前端家庭状态
+        await get().fetchUserProfile(userId);
+        return { success: true, message: data.message || '已退出家庭' };
+      }
+      return { success: false, message: data.message || '退出失败' };
     } catch (e) {
       console.error(e);
       return { success: false, message: '网络错误' };

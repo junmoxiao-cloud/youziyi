@@ -413,7 +413,35 @@ alwaysApply: false
   - `data.familyInfo.members[].city`: 供展示或资料补充使用，不可替代 `cityCode` 作为天气接口查询参数
   - 若某个成员尚未完善 `cityCode`，前端必须保持保守空态，禁止回退为固定北京/上海假数据
   - 家庭创建或加入成功后，前端必须立即重新请求本接口，以服务端最新返回的 `familyId` 与 `familyInfo` 作为“连接成功后稳定展示”的唯一依据；禁止直接用提交前缓存状态假定已连接完成
-- 当前 Web 已完成对 `familyInfo.members[]` 的基础资料展示与共享来源说明；Harmony 当前阶段仅允许展示基础家庭成员信息，不得据此宣称“家庭对方资料、天气来源和最小健康摘要”已完成正式共享闭环。
+- 当前 Web 已完成对 `familyInfo.members[]` 的基础资料展示与共享来源说明；Harmony 当前阶段仅允许展示基础家庭成员信息，不得据此宣称"家庭对方资料、天气来源和最小健康摘要"已完成正式共享闭环。
+
+### 2.8 退出家庭 (Leave Family)
+用于用户主动退出当前家庭，释放家庭关系后可以重新创建或加入其他家庭。
+
+- **接口地址**: `POST /api/family/leave`
+- **请求参数**:
+  ```json
+  {
+    "userId": "string"
+  }
+  ```
+- **字段说明**:
+  - `userId`: 当前用户的 ID，必填
+- **返回示例**:
+  ```json
+  {
+    "code": 0,
+    "data": {
+      "userId": "string",
+      "leftFamily": true
+    },
+    "message": "已退出家庭"
+  }
+  ```
+- **注意事项**:
+  - 退出家庭后，用户的 `familyId` 和 `familyInfo` 将被清空
+  - 退出后用户可立即创建新家庭或使用牵挂码加入其他家庭
+  - 前端在退出成功后必须重新调用 `GET /api/user/profile/:userId` 刷新用户状态
 
 ## 3. 本地联调故障排查
 
