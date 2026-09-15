@@ -9,7 +9,7 @@ const Footer: React.FC = () => {
         rel="noopener noreferrer"
         className="hover:text-ink-600 transition-colors"
       >
-        粤ICP备XXXXXXXX号-1
+        沪ICP备2026026205号-1
       </a>
     </footer>
   );
